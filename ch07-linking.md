@@ -1,0 +1,395 @@
+# Chapter 7 Linking
+
+## 7.7 Relocation
+
+Partial output of `objdump -dx main.o`.
+
+```bash
+...
+0000000000000000 <main>:
+    0: 48 83 ec 08          sub     $0x8,%rsp
+    4: be 02 00 00 00       mov     $0x2,%esi
+    9: bf 00 00 00 00       mov     $0x0,%edi           # %edi = &array
+                a: R_X86_64_32 array                    # Relocation entry
+    e: e8 00 00 00 00       callq   13 <main+0x13>      # sum()
+                f: R_X86_64_PC32 sum-0x4                # Relocation entry
+    13: 48 83 c4 08         add     $0x8,%rsp
+    17: c3                  retq
+```
+
+Figure 7.9 ELF relocation entry. Each entry identifies a reference that must
+be relocated and specifies how to compute the modified reference.
+
+```c
+typedef struct {
+    long offset;     /* Offset of the reference to relocate */
+    long type: 32;   /* Relocation type */
+    long symbol: 32; /* Symbol table index */
+    long addend;     /* Constant part of relocation expression */
+} Elf64_Rela;
+```
+
+The relocation algorithm is about inserting a runtime value at the precise
+relocation reference address pointer by `refptr`. With **PC-relative
+relocations** (not absolute relocations) it equals the difference and sum of:
+1. the run-time address of the relocation symbol (`ADDR(r.symbol)`) which
+is set by the linker after it computed the sizes of all sections in the
+future executable;
+2. `minus` the relocation offset at runtime (`refaddr`), computed by adding
+the relocation offset (`r.offset`) to the runtime address of the section
+(`ADDR(s)`) set by the linker;
+3. `plus`, crucially, the relocation addend (`r.addend`) added to rebase the
+PC because at the current instruction time the PC is already set by the CPU
+to point to the next instruction. As it is it would shoot past the target
+address and subtracting from it the current address would make it shoot short
+because the relocation reference is somewhere within the current instruction
+at a precise displacement hold by the relocation addend.
+
+This `refptr` is the pointer declaration of the specific reference to
+relocate (don't think about "relocate" as taking it to another place:
+its just about setting an absolute value in place of relative values or
+placeholders). Relocation is all about dereferencing that address to assign it
+a definitive runtime value which will be used as delta (expect for R_X86_64_32
+absolute reference) by the RIP register to jump to the right instruction.
+
+```c
+foreach section s {
+  foreach relocation entry r {
+    // Declaring runtime relocation reference where runtime value is expected.
+    refptr = s + r.offset;
+
+    /* Relocate a PC-relative reference (direct jump within the same module) */
+    if (r.type == R_X86_64_PC32) {
+      refaddr = ADDR(s) + r.offset; /* ref’s run-time address (RIP) */
+      *refptr = (unsigned) (ADDR(r.symbol) + r.addend - refaddr);
+    }
+
+    /* Relocate a PLT-relative reference (call to a shared library function) */
+    if (r.type == R_X86_64_PLT32) {
+      refaddr = ADDR(s) + r.offset; /* ref’s run-time address (RIP) */
+      // The target address is the PLT entry, which handles dynamic lookup.
+      *refptr = (unsigned) (ADDR_PLT(r.symbol) + r.addend - refaddr);
+    }
+
+    /* Relocate an absolute reference (data access) */
+    if (r.type == R_X86_64_32)
+      *refptr = (unsigned) (ADDR(r.symbol) + r.addend);
+  }
+}
+```
+
+Here is a detailed breakdown of the three key relocation types encountered:
+PC-Relative `R_X86_64_PLT32` and `R_X86_64_PC32`, and absolute relocation
+`R_X86_64_32`.
+
+---
+
+### 1. `R_X86_64_32`: Absolute (32-bit) Relocation
+
+This is what the book refers to as the **Absolute Reference** (for data,
+like an array address).
+
+#### Purpose:
+To calculate the absolute run-time memory address of a symbol (like a global
+variable or a constant) and write that address directly into the 4-byte
+field of the instruction.
+
+#### When Used:
+Usually for **accessing data** (global variables, static variables, array
+definitions) using older or less efficient x86 instructions where the full
+64-bit address space isn't needed.
+
+#### The Formula (Figure 7.10, Line 13):
+$$\text{Value to Write} = \text{ADDR(r.symbol)} + \text{r.addend}$$
+
+#### Example (`a: R_X86_64_32 array`)
+The instruction that uses this (like `mov $0x0,%edi` where the 0 is the
+placeholder for `&array`) wants to load the absolute memory address of `array`.
+
+* If `ADDR(array)` is $0x601050$.
+* Value to Write: $0x601050 + 0 = 0x601050$.
+
+The linker writes $0x601050$ directly into the 4-byte slot. The CPU will
+use this value as a direct memory address.
+
+---
+
+### 2. `R_X86_64_PC32`: PC-Relative Relocation
+
+This is what the book refers to as the **PC-Relative Reference** (for code
+jumps within the same module).
+
+#### Purpose:
+To calculate the **relative offset** (displacement) from the Program Counter
+(RIP) to the target symbol. This is the preferred method for jumping/calling
+code because the code remains **position-independent** (it can be loaded
+anywhere in memory and still work).
+
+#### When Used:
+For direct function calls (`callq`) or jumps (`jmp`) to targets **within
+the current executable** where the target is known at link time.
+
+#### The Formula (Figure 7.10, Line 8):
+$$\text{Value to Write} = (\text{ADDR(r.symbol)} + \text{r.addend}) -
+\text{refaddr}$$
+
+#### Example (`f: R_X86_64_PC32 sum-0x4`)
+As you correctly noted, the linker computes the exact $\Delta$ (displacement)
+needed to update the RIP to the target.
+
+* Value Written: $0x5$.
+* At runtime: $\text{RIP} (0x4004e3) + 0x5 = \text{Target} (0x4004e8)$.
+
+---
+
+### 3. `R_X86_64_PLT32`: Procedure Linkage Table Relocation
+
+This is the type you found in your code that was absent from the book's
+simple example. This type is critical for **Shared Libraries (`.so` files`)**.
+
+#### Purpose:
+To call a function (`sum` in your case) that **might be located in a separate
+shared library (Dynamic Linking)**. The linker cannot know the final address
+of a shared library function, so it makes the call go through a special
+trampoline in the `.plt` section.
+
+#### When Used:
+Almost always used for **external function calls** when building a Position
+Independent Executable (PIE) that relies on shared libraries (e.g., calling
+`printf` or, in your case, calling `sum` if it were built into a shared
+library or if the compiler decided to use the PLT mechanism).
+
+#### The Action:
+The linker does **not** calculate the displacement to the final `sum`
+function. Instead, it calculates the displacement from the current instruction
+to the **Procedure Linkage Table (PLT) entry** for `sum`.
+
+1.  **Call is Relocated:** The `callq` instruction is patched to jump to
+`sum@plt` (the entry in the PLT).
+2.  **PLT Trampoline:** The PLT entry is a small piece of code that does
+the following:
+    * **First time:** It jumps to the dynamic linker/loader to look up the
+    real address of the `sum` function in the shared library.
+    * **Subsequent times:** Once the address is known, it patches itself so
+    that the next time, it jumps **directly** to the real `sum` function.
+
+#### The Formula:
+It uses a PC-relative calculation, similar to `R_X86_64_PC32`, but the target
+symbol is **the PLT entry**, not the function itself.
+
+$$\text{Value to Write} = (\text{ADDR(sum@PLT)} + \text{r.addend}) -
+\text{refaddr}$$
+
+This indirection via the PLT is what allows dynamic linking to work—the
+main code can be called before the final function address is known.
+
+---
+
+### Summary of the Difference
+
+The type of relocation depends entirely on **what the instruction is meant
+to do** and **where the target is located.**
+
+| Type | Target Location | Address Type | Linker Action |
+| :--- | :--- | :--- | :--- |
+| **`R_X86_64_32`** | Data (Global Variable) | Absolute Address | Writes the 4-byte target address directly into the instruction. |
+| **`R_X86_64_PC32`** | Code (Known Function) | PC-Relative Displacement | Writes the $\Delta$ (displacement) to jump to the target function. |
+| **`R_X86_64_PLT32`** | External Code (Shared Library) | PC-Relative Displacement | Writes the $\Delta$ to jump to the **PLT entry** for the function. |
+
+## 7.8 Executable Object Files
+
+Based on the output of either `readelf -e main.o` or `objdump -x main.o`.
+
+The **Program Headers Table** is often confusing because it contains
+similar information to the **Section Headers Table** but serves a completely
+different master.
+
+If the Section Headers Table is the compiler/linker's detailed map for
+organizing the file, the Program Headers Table is the **Operating System's
+(OS) minimalist instruction set for loading and running the program**.
+
+Here is a detailed breakdown of what the Program Headers Table is, why it's
+needed, and what the key fields mean in your output.
+
+***
+
+### The Purpose of Program Headers
+
+The Program Headers Table, often called the **"Execution View"** of the ELF
+file, is the essential guide for the OS's program loader (part of the kernel).
+
+When you execute `./main.out`, the kernel ignores the detailed sections
+(like `.text`, `.data`, `.rela.dyn`) and looks only at the Program Headers,
+specifically the **`LOAD`** entries, to figure out which chunks of the file
+it needs to map into the process's virtual memory address space.
+
+#### Key Distinction: Sections vs. Segments
+
+* **Sections** (Section Headers Table): Group related data for **linking**
+(e.g., `.text`, `.rodata`). This is the *linking view*.
+* **Segments** (Program Headers Table): Group sections with similar
+run-time requirements (e.g., all read-only, executable sections go into one
+segment). This is the *execution view*.
+
+### Analysis of Your Program Headers
+
+Your Program Headers define 13 segments (or "program segments," which
+are distinct blocks of memory the OS must set up). Let's examine the most
+important entries:
+
+#### 1. `PHDR` (Program Header)
+
+* **Type:** `PHDR`
+* **Role:** This entry tells the OS where the Program Headers Table itself
+is located in memory, allowing the kernel to find all other segments.
+* **Observation:** `Offset: 0x0000000000000040`. The table starts 64 bytes
+into the file (just after the 64-byte ELF Header).
+
+#### 2. `INTERP` (Program Interpreter)
+
+* **Type:** `INTERP`
+* **Role:** This is critical for dynamic linking. It specifies the path to
+the **dynamic linker/loader** (the program interpreter).
+* **Observation:** `[Requesting program interpreter:
+/lib64/ld-linux-x86-64.so.2]`. The OS loads this library first, and this
+library is responsible for loading all other shared libraries (`libc.so.6`,
+etc.) and performing the dynamic relocations we discussed.
+
+#### 3. `LOAD` Segments (The Memory Map)
+
+The `LOAD` entries are the actual instructions for the kernel on how to set
+up the process's virtual memory space. This is where sections are combined
+into larger, memory-aligned pages.
+
+| Segment | Offset (File Position) | VirtAddr (Memory Start) | FileSiz (Data Size in File) | MemSiz (Size in Memory) | Flags | Sections Covered |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **LOAD 1** | `0x00000000` | `0x00000000` | `0x5f0` | `0x5f0` | `R` (Read) | Headers, Dynamic Info, Read-Only Data |
+| **LOAD 2** | `0x00001000` | `0x00001000` | `0x1a9` | `0x1a9` | `R E` (Read, Execute) | `.init`, `.text`, `.fini` |
+| **LOAD 3** | `0x00002000` | `0x00002000` | `0x0ec` | `0x0ec` | `R` (Read) | `.rodata`, `.eh_frame` |
+| **LOAD 4** | `0x00002df0` | `0x00003df0` | `0x228` | `0x230` | `RW` (Read, Write) | `.init_array`, `.data`, `.got`, `.bss` |
+
+#### The Magic of `LOAD 4` (Read/Write)
+
+Look closely at the last `LOAD` entry (LOAD 4):
+* **`FileSiz`: `0x228`** (The size of the data stored in the file, including
+`.data` and `.got`)
+* **`MemSiz`: `0x230`** (The size of the memory region it occupies)
+
+The memory size (`0x230`) is slightly larger than the file size (`0x228`). This
+is because this segment includes the **`.bss`** section (Section [24]),
+which holds uninitialized global variables. The `FileSiz` stops before
+`.bss` because it contains no file data, but the `MemSiz` includes it,
+signaling the OS to allocate the extra space (`0x230 - 0x228 = 8` bytes)
+and initialize it to zero at run time.
+
+#### 4. `DYNAMIC`
+
+* **Type:** `DYNAMIC`
+* **Role:** Points to the location of the `.dynamic` section (which contains
+the list of needed shared libraries, relocation tables, etc.). The dynamic
+linker uses this to start its work.
+
+#### 5. `GNU_RELRO` (Relocation Read-Only)
+
+* **Type:** `GNU_RELRO`
+* **Role:** This is a security feature. It marks a region of memory (which
+includes parts of the GOT and dynamic arrays) that is read/write during
+initialization but should be switched to **read-only** afterward to prevent
+runtime attacks.
+* **Observation:** `VirtAddr: 0x0000000000003df0`. This covers the sensitive,
+dynamically linked data (`.init_array`, `.fini_array`, `.dynamic`, `.got`).
+
+
+## 7.8 Segment table `LOAD` types
+
+You are absolutely correct: **not all sections are loaded into memory**. This
+is the single most important purpose of the Program Headers Table—it
+defines the bare minimum the OS needs to run the program.
+
+Here is a breakdown of what the `LOAD` type means, and how your conceptual
+division of memory maps directly to your `objdump` output.
+
+***
+
+### 1. What does `LOAD` mean in the Program Header?
+
+The Program Header entry type **`LOAD`** is the kernel's most fundamental
+instruction for setting up the process.
+
+
+
+| Field | Meaning |
+| :--- | :--- |
+| **`LOAD`** (Type) | This tells the Operating System kernel: "Map the chunk of data described below from the file into the process's Virtual Memory Address (VMA) space." |
+| **`off` (Offset)** | The starting byte position *inside the executable file* where this data chunk begins. |
+| **`vaddr` (VirtAddr)** | The starting address *in the process's virtual memory* where the file content should be mapped. |
+| **`align`** | The required memory alignment. For `LOAD` segments, this is typically `2**12` (or 4096 bytes, which is the standard page size on x86-64 Linux). This ensures segments start on page boundaries. |
+| **`flags`** | Defines the page protections applied to this memory region: `r` (Read), `w` (Write), `x` (Execute). This is crucial for security (e.g., preventing code from being written to). |
+
+In simple terms: **Every `LOAD` segment corresponds to a `mmap()` system
+call made by the kernel.**
+
+### 2. Mapping the Book's Logic to Your Output
+
+Your observation about the two memory segments (**Read-only** and
+**Read-write**) is correct. The linker combines multiple sections into
+segments based solely on their runtime flags (Read, Write, Execute).
+
+In your output, the memory is grouped into four primary `LOAD` segments,
+which can be categorized into two major areas:
+
+#### A. The Read-Only / Execute Segment (The Code & Constants)
+
+This group is where the program lives and executes. The kernel protects
+this memory against writing to prevent buffer overflows from altering the
+executable logic.
+
+| Load Segment | VMA Start | Flags | Sections Included | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| **LOAD 1** | `0x00000000` | `r--` | ELF Header, Program Headers, Dynamic Linker Info | Read-only metadata. |
+| **LOAD 2** | `0x00001000` | **`r-x`** | `.init`, `.plt`, `.text`, `.fini` | **Executable Code.** The primary segment for functions (`main`, `sum`, etc.). |
+| **LOAD 3** | `0x00002000` | `r--` | `.rodata`, `.eh_frame_hdr`, `.eh_frame` | Read-only data (string literals, exception handling tables). |
+
+#### B. The Read-Write Segment (The Variables)
+
+This single segment is where program state (variables, global data structures)
+is stored.
+
+| Load Segment | VMA Start | Flags | Sections Included | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| **LOAD 4** | `0x00003df0` | **`rw-`** | `.init_array`, `.fini_array`, `.dynamic`, `.got`, `.data`, **`.bss`** | **Writable Data.** Contains initialized global data (`.data`), uninitialized global data (`.bss`), and data that needs to be modified during dynamic linking (`.got`, `.dynamic`). |
+
+### 3. Sections Not Loaded into Memory
+
+You are precisely right about this. Many sections are critical for
+the **linker** or **debugger** but are useless once the program starts
+running. These sections are specifically excluded from all `LOAD` segments.
+
+The key indicator in the **Sections** table is the **`ALLOC`** flag.
+
+* **`ALLOC` present:** The section is part of a segment that will be loaded
+into the process's memory space. (Sections 0 through 23 all have the `ALLOC`
+flag).
+* **`ALLOC` missing:** The section is *not* loaded into memory. It is static
+information that stays in the file.
+
+In your output, the perfect example of a non-loaded section is:
+
+| Idx | Name | VMA | Attributes |
+| :--- | :--- | :--- | :--- |
+| **24** | **`.comment`** | `0000000000000000` | CONTENTS, READONLY |
+
+Notice:
+1.  **VMA is 0:** It has no assigned memory address, so it won't be mapped.
+2.  **`ALLOC` is missing:** This confirms it is not allocated to the
+process's memory.
+
+#### Other Non-Loaded Sections (Often Stripped/Omitted)
+
+If your binary were built with full debugging information (`-g`) and without
+stripping, you would see many other non-loaded sections, including:
+
+* **`.symtab`** (The full Symbol Table)
+* **`.strtab`** (The String Table for symbols)
+* **`.shstrtab`** (The Section Header String Table)
+* All **`.debug_...`** sections (e.g., `.debug_info`, `.debug_line`.
