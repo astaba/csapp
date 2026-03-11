@@ -1,0 +1,369 @@
+# Ch 09. VM mappings of `malloc` and `mmap`
+
+>**Question:** differentiate `mmap()` and `malloc()` syscalls at the level of
+their behavior at virtual memory allocation on disk through actual DRAM caching
+when and why demand paging (or demand zero) occur.
+
+Nice — this is a great systems question. I’ll give you a careful,
+**exhaustive** comparison of `malloc()` vs `mmap()` focused on what happens
+in virtual memory, when and why physical DRAM pages are allocated (demand
+paging / demand-zero), how disk and the page cache are involved, and the
+practical consequences (performance, correctness, when pages are zeroed,
+when they get swapped out, etc.).
+
+I’ll use short diagrams, exact syscall/flags, and concrete examples you
+can test with `strace`, `vmstat`, `/proc`, `perf`, etc. If you want I can
+follow with a tiny experiment script afterwards.
+
+---
+
+## TL;DR (summary first)
+
+* **`malloc()`** is a *userspace heap allocator*: it grows the
+process heap via `brk()`/`sbrk()` (or uses `mmap()` internally for large
+allocations). `malloc()` itself does **not** touch pages; physical memory is
+provided only when you *access* the pages (page fault → kernel supplies
+a physical page). `malloc()` does **not** zero returned memory (except
+`calloc()`); the kernel supplies zeroed pages on first fault for *anonymous*
+pages.
+
+* **`mmap()`** creates a *virtual memory mapping*. For **file-backed**
+mappings the kernel will populate pages on first access by reading from the
+backing file (page-in). For **anonymous** mappings (`MAP_ANONYMOUS`) the kernel
+gives a VMA but does not allocate physical memory until first access — then
+it allocates a DRAM page which is **zero-filled** (demand-zero). `mmap()`
+offers flags (`MAP_PRIVATE` / `MAP_SHARED`, `MAP_POPULATE`, `MAP_LOCKED`,
+etc.) that change behavior.
+
+* **Demand paging / demand-zero**: both `malloc()` (via heap or mmap-backed
+arenas) and `mmap(..., MAP_ANONYMOUS)` produce VMAs that are *backed by
+no physical pages* initially. The first CPU access triggers a page fault;
+kernel allocates a physical page and either zeros it (anonymous) or reads
+file contents (file-backed). `calloc()` zeroes memory in userspace but
+underlying pages still zeroed by kernel if never touched.
+
+* **Page cache vs anonymous pages**: file-backed mmaps live in the page cache
+(so dirty pages are the file cache). Anonymous pages live in swap or RAM;
+they may be swapped out to swap device. File-backed pages can be dropped
+and reloaded from the file (no swap needed).
+
+---
+
+## 1) Mechanisms & typical usage
+
+### `malloc()` (userspace allocator)
+
+* Application calls `malloc(size)`.
+* `malloc()` manages a userspace heap and metadata (bins, free lists, arenas).
+* Implementation details:
+
+  * Small allocations are typically carved from the process *heap* (single
+  contiguous region) grown with `brk()`/`sbrk()` (the “program break”).
+  * Large allocations (glibc threshold e.g. ≥ 128 KiB by default) are
+  often satisfied via `mmap()` internally (so `malloc()` may call `mmap()`
+  under the hood for large chunks).
+* **Syscalls you’ll see**: `brk()`/`sbrk()` and sometimes `mmap()` for
+big allocations.
+* **Returned pointer**: always virtual memory inside your process. No
+guarantee of physical RAM until you touch it.
+
+### `mmap()` (direct mapping)
+
+* Call: `void *p = mmap(addr, length, prot, flags, fd, offset);`
+* Two important classes:
+
+  * **File-backed**: `fd` is file descriptor; maps file contents into memory.
+  * **Anonymous**: `MAP_ANONYMOUS` (fd ignored); maps zero-initialized pages
+  (no disk file).
+* Flags:
+
+  * `MAP_SHARED` — modifications are visible to other processes and to
+  the file (writeback to page cache).
+  * `MAP_PRIVATE` — copy-on-write: writes produce private copy pages,
+  not written back to file.
+  * `MAP_POPULATE` — try to fault pages in immediately (less common).
+  * `MAP_NORESERVE` / overcommit behavior.
+* **Syscall you’ll see**: `mmap()`, `munmap()`, `mprotect()`.
+
+---
+
+## 2) Virtual address vs physical backing (what the kernel keeps)
+
+When you call `malloc()` or `mmap()` the kernel sets up VM metadata (VMA —
+virtual memory area) and page table entries for that region may be absent
+or marked not-present. The important distinction:
+
+* **Virtual mapping exists immediately** (you have virtual addresses).
+* **Physical frames (DRAM pages) are allocated only on first access** —
+this is **demand paging**.
+
+### Detailed behavior
+
+**Anonymous `mmap()`** (`MAP_ANONYMOUS`):
+
+* Kernel creates a VMA with no physical frames.
+* On first access to a page in that VMA → page fault → kernel allocates
+a physical frame and **zero-fills** it before mapping into the process page
+table (demand-zero). Reason: security (no leakage of other process memory).
+* After the page is present, CPU accesses use caches → DRAM.
+
+**`malloc()` via `brk()`**:
+
+* `malloc()` may call `brk()`/`sbrk()` to enlarge the heap: this increases
+the VMA or moves program break, but **no physical pages** are allocated
+until you read/write them.
+* Thus `malloc(1000000)` usually does `brk()` but pages only allocated on
+access (first write triggers page fault → allocation).
+* **Important**: `malloc()` does not zero returned memory necessarily —
+the kernel ensures pages are zero when first allocated (demand-zero), but if
+`malloc()` reuses previously freed memory, the contents may be left over
+unless the allocator zeroes it (which `calloc()` does).
+
+**File-backed `mmap()`**:
+
+* Kernel creates a VMA that is backed by the file through the *page cache*.
+* On first access to a page, if not cached → kernel reads the page from
+disk into page cache (DRAM), then maps it into process page table. So physical
+page contains file contents.
+* For `MAP_PRIVATE`: the page in page cache may be shared read-only; on write
+the kernel will allocate a private copy (copy-on-write) and the private page
+is not written back to file.
+
+---
+
+## 3) Demand-zero, demand paging, and security
+
+* Anonymous pages are **zero-initialized by the kernel** before mapping to a
+process on first fault. This is commonly referred to as **demand-zero**. It’s
+done in kernel space (not by `malloc()`), to avoid leaking old memory.
+* File-backed pages are initialized by reading the corresponding block(s)
+from the file into memory on first fault.
+
+`calloc()` vs `malloc()`:
+
+* `calloc()` zeroes memory in userspace (fills returned buffer with
+zeros). But if pages are not physically allocated yet, the kernel still
+supplies zeroed pages; `calloc()` uses `memset()` to ensure the visible
+buffer is zero. `malloc()` might return memory that contains prior data
+unless those pages were freshly allocated by kernel (for newly extended heap)
+or the allocator zeroed them.
+
+---
+
+## 4) Page cache, dirty pages, and writeback
+
+* **File-backed mmap (`MAP_SHARED`) writes** modify the page in **page cache**
+and mark it **dirty**. The kernel will flush dirty pages to disk asynchronously
+(writeback); caller can call `msync(..., MS_SYNC)` to force flush.
+* **`MAP_PRIVATE`** writes are copy-on-write: the process gets a private
+copy of the page (not written back to file); the original page in the page
+cache remains unchanged.
+* **Anonymous pages** are not associated with a file; if physical memory is
+reclaimed they may be swapped to the swap device (page out) or dropped and
+reconstructed via swap.
+
+**Swap vs page cache:**
+
+* File-backed pages can be freed (evicted) and reloaded from the file (no
+swap required).
+* Anonymous pages, when evicted, usually get swapped out (to swap device)
+since there is no backing file.
+* The kernel may compress pages (zswap) or use other strategies.
+
+---
+
+## 5) Overcommit and reservation
+
+* Linux typically uses memory **overcommit** — `mmap()` or `brk()` may
+succeed even though physical RAM+swap are insufficient; actual allocation
+happens on fault. This is why `malloc()`/`mmap()` can succeed but later
+application crashes with OOM.
+* `MAP_NORESERVE` / `mmap()` flags control reservation: with noreserve,
+no swap is reserved, leaving you more liable to OOM.
+
+---
+
+## 6) Fork and copy-on-write (COW)
+
+* `fork()` duplicates the VMAs; the kernel does **not** copy physical
+pages. Pages are marked read-only and shared; on write, a page fault triggers
+kernel to allocate a new page (copy-on-write).
+* `malloc()` + `brk()` allocations partake in COW: if parent had allocated
+pages and child writes, COW happens.
+* `mmap(..., MAP_PRIVATE)` also has COW semantics for writes.
+
+---
+
+## 7) CPU caches vs DRAM vs Kernel page cache
+
+* **CPU caches (L1/L2/L3)** are hardware microarchitectural buffers —
+accesses hit these if the line was recently used.
+* **DRAM** holds the physical page frames. A page must exist here to be
+read/written by CPU (after missing in CPU caches).
+* **Linux page cache** is a kernel-managed mapping of file contents into
+DRAM pages. File-backed mmaps and read() populate page cache.
+
+Sequence on first file-backed access:
+
+1. User code touches address — page fault.
+2. Kernel finds VMA backing to a file; looks for page in page cache.
+3. If not present, kernel reads block(s) from disk into page cache (DRAM).
+4. Kernel maps page into process page table.
+5. User resumes and then CPU caches may be filled.
+
+Sequence on anonymous mapping access:
+
+1. Touch → page fault.
+2. Kernel allocates a free physical page frame and zeros it (demand-zero).
+3. Kernel maps page into page table.
+4. User resumes.
+
+---
+
+## 8) Tools & experiments (how to observe behavior)
+
+* `strace -e brk,mmap,mprotect,munmap ./prog` — see which syscalls
+allocator uses.
+* `vmstat`, `free -m` — memory usage, swap usage.
+* `/proc/<pid>/smaps` — per-mapping memory stats (Rss, Pss, Shared_Clean,
+Shared_Dirty).
+* `/proc/<pid>/pagemap` — low-level page mapping (requires care).
+* `mincore()` — query residency of pages (is page in RAM?).
+* `perf stat` — measure page faults, cycles.
+* `mmap(..., MAP_POPULATE)` — force kernel to pre-fault pages (costly).
+* `mlock()` / `mlockall()` — lock pages into RAM (avoid paging).
+* `madvise(..., MADV_WILLNEED)` — hint to kernel to prefetch.
+* `msync(..., MS_SYNC)` — flush dirty pages to disk.
+
+---
+
+## 9) Practical consequences & performance
+
+* **First-touch cost**: The first access to a page triggers a page fault
+that is expensive (microseconds to milliseconds if disk I/O required). So
+touching many newly allocated pages sequentially is slower the first time.
+* **Use `MAP_POPULATE` or `madvise(MADV_WILLNEED)`** when you want to
+pre-fault pages (e.g., before real-time processing), or manually touch pages
+in a controlled loop.
+* **`malloc()` vs `mmap()` performance**:
+
+  * `malloc()` is faster for many small allocations because it avoids syscall
+  cost (unless it needs to `brk()` or `mmap()`).
+  * Large heaps from `brk()` are contiguous (good locality).
+  * `mmap()` for big allocations avoids polluting heap and is easier to unmap
+  to return memory to kernel (`munmap()` vs `free()` which may not shrink
+  `brk()`).
+* **Release to kernel**:
+
+  * `munmap()` releases virtual memory and associated physical pages
+  immediately.
+  * `free()` usually keeps memory in the malloc arenas (not returned to
+  kernel). Only `munmap()` or shrinking via `brk()` returns to kernel (glibc
+  may `mmap()`/`munmap()` for large blocks).
+* **Fragmentation**:
+
+  * `brk()`-based heap can fragment, but is compact.
+  * `mmap()` yields multiple VMAs (fragmentation in VMAs but easier to
+  `munmap()` single regions).
+
+---
+
+## 10) Comparison table (concise)
+
+| Aspect                               |                                                                      `malloc()`/heap |                                                           `mmap()` (anonymous) | `mmap()` (file-backed)                                            |
+| ------------------------------------ | -----------------------------------------------------------------------------------: | -----------------------------------------------------------------------------: | ----------------------------------------------------------------- |
+| Syscalls used                        |                                              `brk()`/`sbrk()` and sometimes `mmap()` |                                                                       `mmap()` | `mmap()`                                                          |
+| Virtual mapping created immediately  |                                                                                  yes |                                                                            yes | yes                                                               |
+| Physical pages allocated immediately |                                                                       no (on access) |                                                   no (on access) — demand-zero | no (on access) — read from file                                   |
+| Initial page contents                | undefined (allocator may reuse old memory) unless kernel allocated fresh page → zero |                                                      zero (kernel demand-zero) | file contents (kernel reads into page cache)                      |
+| Zeroing guarantee                    |                  `malloc()` does not zero; `calloc()` zeros; kernel zeroes new pages |                                                   kernel zeroes on first fault | kernel loads from file                                            |
+| Visibility of writes                 |                                                   within process (or across threads) | `MAP_SHARED` writes visible to other processes & to file; `MAP_PRIVATE` is COW | file-backed page cache; writes mark dirty                         |
+| Release back to kernel               |                                        `free()` may not; `munmap()`/`brk()` required |                                                               `munmap()` frees | `munmap()` frees                                                  |
+| Swap/page cache behavior             |                                                       anonymous pages may be swapped |                                                             anon pages swapped | file-backed pages can be dropped and reloaded from file (no swap) |
+| Use when                             |                                     general heap allocations, many small allocations |         large contiguous allocation, control over page faulting, shared memory | map big files into memory, memory-mapped IO                       |
+
+---
+
+## 11) Advanced topics you should know
+
+* **Transparent Huge Pages (THP)**: kernel may back mappings with huge pages
+(2MB) which change page fault and allocation behavior.
+* **MADV_DONTNEED**: you can tell kernel pages are not needed; kernel frees
+them (for anonymous pages, they will be demand-zero on next access).
+* **MLock**: lock pages in RAM (no swap).
+* **Page migration / NUMA**: on NUMA machines, the kernel may allocate pages
+on local node depending on first touch.
+* **`/proc/sys/vm/overcommit_*`** and OOM behavior.
+* **`mremap()`** to grow mappings (Linux-specific).
+
+---
+
+## 12) Concrete mini-examples & commands
+
+* See whether `malloc()` triggers `brk()` or `mmap()`:
+
+```sh
+strace -e brk,mmap ./a.out
+```
+
+* Test first-touch cost:
+
+```c
+char *p = mmap(NULL, 1ULL<<30, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE,
+-1, 0);
+for (size_t i = 0; i < (1ULL<<30); i += 4096) p[i] = 0;  // touches, forces
+page faults
+```
+
+* Observe page residency with `mincore()` or `/proc/<pid>/smaps`.
+
+---
+
+## 13) Practical advice (when to use which)
+
+* Use **`malloc()`** for general-purpose allocations and many small objects;
+it’s efficient and portable.
+* Use **`mmap(MAP_ANONYMOUS)`** when you want a big region, are concerned
+about returning memory to kernel easily, want non-contiguous heap arenas
+for multi-threaded programs, or want page-level control (mlock, madvise).
+* Use **`mmap(file)`** to memory-map files for convenient random access and
+to benefit from the kernel’s page cache (avoids extra copy between kernel
+and user buffers).
+* If you need **guaranteed physical RAM now**, use
+`mlock()`/`MAP_POPULATE`/pre-touch pages.
+* If you need to **avoid zeroing cost at user-level** but still want zero
+pages, rely on demand-zero semantics, or use `calloc()` if you explicitly
+want zeroed user-visible memory.
+
+---
+
+## 14) Short experiments you can run (suggested)
+
+1. **Trace allocator syscalls**:
+
+   ```sh
+   strace -f -e trace=memory,brk,mmap,munmap ./myprog
+   ```
+2. **Measure fault cost**:
+
+   * `mmap()` a large area and do spaced writes that generate faults;
+   measure time before/after.
+3. **Observe page cache vs swap**:
+
+   * `mmap()` a large file and `drop_caches`, then read and observe I/O via
+   `iostat`.
+
+---
+
+## Final notes (pitfalls & gotchas)
+
+* Don’t assume `malloc()` returns zeroed memory — use `calloc()` or
+explicitly `memset()` when necessary.
+* `mmap()` with `MAP_ANONYMOUS` gives zeroed pages on first touch — but
+pages are zeroed by kernel, not by `mmap()` itself.
+* Freeing memory: `free()` does not guarantee returning pages to kernel;
+`munmap()` does.
+* Overcommit: allocation success != memory availability.
+* Use `msync()` / `fsync()` to ensure file-backed data is flushed when needed.
+
+---

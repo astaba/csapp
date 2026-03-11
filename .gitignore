@@ -3,7 +3,6 @@
 # Prerequisites
 *.d
 *.i
-*.s
 
 # Object files
 *.o
@@ -65,4 +64,6 @@ temp/
 *.old
 *.swp
 *~
+# Emacs auto-save files
+\#*\#
 
