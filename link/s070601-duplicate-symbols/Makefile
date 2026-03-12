@@ -10,7 +10,7 @@ CFLAGS = -Wall -Og
 # WARN: Define INDEX on the cmd line for all other binaries: INDEX=<no>
 INDEX  = 1
 SRC    = foo$(INDEX).c bar$(INDEX).c
-BIN    = foo$(INDEX).out
+BIN    = foo$(INDEX)
 
 all: $(BIN)
 
@@ -18,5 +18,5 @@ $(BIN): $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
-	rm -rf *.out
+	rm -rf $(BIN)
 

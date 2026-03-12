@@ -11,7 +11,7 @@ TEMP   = tmp/
 SRC    = main.c sum.c
 # This ensures the final link step depends on tmp/main.o and tmp/sum.o.
 RLO = $(addprefix $(TEMP),$(subst .c,.o,$(SRC)))
-BIN = $(subst .c,.out,$(word 1,$(SRC)))
+BIN = $(subst .c,,$(word 1,$(SRC)))
 # --- NEW DIRECTIVE ---
 #  When compiling from intermediate files store in a "tmp/" directory make
 #  will automatically delete all *.i and *.s file at the end of the compilation.
@@ -43,4 +43,4 @@ $(TEMP)%.i: %.c
 	$(CC) -E $< -o $@
 
 clean:
-	rm -rf *.out ./$(TEMP)
+	rm -rf ./$(BIN) ./$(TEMP)

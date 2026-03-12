@@ -29,19 +29,19 @@ int main(int argc, char *argv[argc + 1]) {
     perror("lseek() failed");
     exit(EXIT_FAILURE);
   }
-  // BUG: Nor required since mmap operates from its offset argument but best
+  // FIX: Nor required since mmap operates from its offset argument but best
   // recommands to rewind before mmap.
   // HACK: By calling fstat() to get the file size prescind from any
   // manipulation of the file offset.
 
-  // BUG: Using both "MAP_PRIVATE | MAP_SHARED" is illegal.
+  // FIX: Using both "MAP_PRIVATE | MAP_SHARED" is illegal.
   char *ptr = mmap(NULL, filelen, PROT_READ, MAP_PRIVATE | MAP_SHARED, fd, 0);
   if (ptr == MAP_FAILED) {
     perror("mmap() failed");
     exit(EXIT_FAILURE);
   }
 
-  // BUG: Using buffer text I/O library function on arbitrary binary file is
+  // FIX: Using buffer text I/O library function on arbitrary binary file is
   // calling for undefined behavior.
   printf("%.*s\n", (int)filelen, ptr);
 
