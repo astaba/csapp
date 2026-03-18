@@ -1,0 +1,63 @@
+	.file	"290-registers.c"
+	.text
+	.globl	proc
+	.type	proc, @function
+proc:
+	endbr64
+	addl	%esi, %edi
+	addl	%edx, %edi
+	movslq	%edi, %rax
+	ret
+	.size	proc, .-proc
+	.globl	t3
+	.type	t3, @function
+t3:
+	endbr64
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbp
+	pushq	%rbx
+	movq	%rsi, %r10
+	movq	%rdx, %r11
+	movq	(%rdi), %rax
+	movq	(%rsi), %rbp
+	movq	(%rdx), %rbx
+	movq	(%rcx), %rsi
+	movq	(%r8), %rdx
+	movq	(%r9), %r13
+	leaq	(%rax,%rbp), %r12
+	addq	%rbx, %rbp
+	addq	%rsi, %rbx
+	addq	%rdx, %rsi
+	addq	%r13, %rdx
+	addq	%r13, %rax
+	movq	%r12, (%rdi)
+	movq	%rbp, (%r10)
+	movq	%rbx, (%r11)
+	movq	%rsi, (%rcx)
+	movq	%rdx, (%r8)
+	movq	%rax, (%r9)
+	popq	%rbx
+	popq	%rbp
+	popq	%r12
+	popq	%r13
+	ret
+	.size	t3, .-t3
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

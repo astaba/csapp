@@ -1,0 +1,46 @@
+	.file	"320-procprobs.c"
+	.text
+	.globl	procprob
+	.type	procprob, @function
+procprob:
+	endbr64
+	movslq	%edi, %rdi
+	addq	%rdi, (%rdx)
+	addb	%sil, (%rcx)
+	movl	$6, %eax
+	ret
+	.size	procprob, .-procprob
+	.globl	argprob
+	.type	argprob, @function
+argprob:
+	endbr64
+	movsbl	%dil, %edi
+	subl	%edi, %edx
+	movq	8(%rsp), %rax
+	movl	%edx, (%rax)
+	movswq	%si, %rsi
+	subq	%rcx, %rsi
+	movq	16(%rsp), %rax
+	movq	%rsi, (%rax)
+	movzwl	(%r9), %eax
+	movb	%al, (%r8)
+	ret
+	.size	argprob, .-argprob
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

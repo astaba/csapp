@@ -1,0 +1,159 @@
+	.file	"110-cc.c"
+	.text
+	.globl	comp
+	.type	comp, @function
+comp:
+	endbr64
+	cmpq	%rsi, %rdi
+	setl	%al
+	movzbl	%al, %eax
+	ret
+	.size	comp, .-comp
+	.globl	ilt
+	.type	ilt, @function
+ilt:
+	endbr64
+	cmpl	%esi, %edi
+	setl	%al
+	movzbl	%al, %eax
+	ret
+	.size	ilt, .-ilt
+	.globl	bge
+	.type	bge, @function
+bge:
+	endbr64
+	cmpw	%si, %di
+	setge	%al
+	movzbl	%al, %eax
+	ret
+	.size	bge, .-bge
+	.globl	ucle
+	.type	ucle, @function
+ucle:
+	endbr64
+	cmpb	%dil, %sil
+	setnb	%al
+	movzbl	%al, %eax
+	ret
+	.size	ucle, .-ucle
+	.globl	lieq
+	.type	lieq, @function
+lieq:
+	endbr64
+	cmpq	%rsi, %rdi
+	sete	%al
+	movzbl	%al, %eax
+	ret
+	.size	lieq, .-lieq
+	.globl	ulieq
+	.type	ulieq, @function
+ulieq:
+	endbr64
+	cmpq	%rsi, %rdi
+	sete	%al
+	movzbl	%al, %eax
+	ret
+	.size	ulieq, .-ulieq
+	.globl	peq
+	.type	peq, @function
+peq:
+	endbr64
+	cmpq	%rdi, %rsi
+	sete	%al
+	movzbl	%al, %eax
+	ret
+	.size	peq, .-peq
+	.globl	gt
+	.type	gt, @function
+gt:
+	endbr64
+	cmpq	%rdi, %rsi
+	setb	%al
+	movzbl	%al, %eax
+	ret
+	.size	gt, .-gt
+	.globl	test
+	.type	test, @function
+test:
+	endbr64
+	testq	%rdi, %rdi
+	setne	%al
+	movzbl	%al, %eax
+	ret
+	.size	test, .-test
+	.globl	test_lige
+	.type	test_lige, @function
+test_lige:
+	endbr64
+	movq	%rdi, %rax
+	notq	%rax
+	shrq	$63, %rax
+	ret
+	.size	test_lige, .-test_lige
+	.globl	test_wz
+	.type	test_wz, @function
+test_wz:
+	endbr64
+	testw	%di, %di
+	sete	%al
+	movzbl	%al, %eax
+	ret
+	.size	test_wz, .-test_wz
+	.globl	test_uwz
+	.type	test_uwz, @function
+test_uwz:
+	endbr64
+	testw	%di, %di
+	sete	%al
+	movzbl	%al, %eax
+	ret
+	.size	test_uwz, .-test_uwz
+	.globl	test_cgt
+	.type	test_cgt, @function
+test_cgt:
+	endbr64
+	testb	%dil, %dil
+	setg	%al
+	movzbl	%al, %eax
+	ret
+	.size	test_cgt, .-test_cgt
+	.globl	test_ile
+	.type	test_ile, @function
+test_ile:
+	endbr64
+	testl	%edi, %edi
+	setle	%al
+	movzbl	%al, %eax
+	ret
+	.size	test_ile, .-test_ile
+	.globl	y
+	.bss
+	.align 4
+	.type	y, @object
+	.size	y, 4
+y:
+	.zero	4
+	.globl	x
+	.align 4
+	.type	x, @object
+	.size	x, 4
+x:
+	.zero	4
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

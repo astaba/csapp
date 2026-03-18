@@ -1,0 +1,98 @@
+	.file	"380-structure.c"
+	.text
+	.globl	copy
+	.type	copy, @function
+copy:
+	endbr64
+	movl	(%rdi), %eax
+	movl	%eax, 4(%rdi)
+	ret
+	.size	copy, .-copy
+	.globl	set_i
+	.type	set_i, @function
+set_i:
+	endbr64
+	movl	%esi, (%rdi)
+	ret
+	.size	set_i, .-set_i
+	.globl	set_a_ele
+	.type	set_a_ele, @function
+set_a_ele:
+	endbr64
+	movslq	%esi, %rsi
+	movl	%edx, 8(%rdi,%rsi,4)
+	ret
+	.size	set_a_ele, .-set_a_ele
+	.globl	set_p
+	.type	set_p, @function
+set_p:
+	endbr64
+	movq	%rsi, 16(%rdi)
+	ret
+	.size	set_p, .-set_p
+	.globl	find_a
+	.type	find_a, @function
+find_a:
+	endbr64
+	movq	%rdi, p(%rip)
+	movl	%esi, j(%rip)
+	movslq	%esi, %rax
+	leaq	8(%rdi,%rax,4), %rax
+	movq	%rdi, q(%rip)
+	movl	%esi, k(%rip)
+	ret
+	.size	find_a, .-find_a
+	.globl	link_p
+	.type	link_p, @function
+link_p:
+	endbr64
+	movl	4(%rdi), %eax
+	addl	(%rdi), %eax
+	cltq
+	leaq	8(%rdi,%rax,4), %rax
+	movq	%rax, 16(%rdi)
+	ret
+	.size	link_p, .-link_p
+	.globl	k
+	.bss
+	.align 4
+	.type	k, @object
+	.size	k, 4
+k:
+	.zero	4
+	.globl	j
+	.align 4
+	.type	j, @object
+	.size	j, 4
+j:
+	.zero	4
+	.globl	q
+	.align 8
+	.type	q, @object
+	.size	q, 8
+q:
+	.zero	8
+	.globl	p
+	.align 8
+	.type	p, @object
+	.size	p, 8
+p:
+	.zero	8
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

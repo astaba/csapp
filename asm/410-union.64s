@@ -1,0 +1,89 @@
+	.file	"410-union.c"
+	.text
+	.globl	double2bits
+	.type	double2bits, @function
+double2bits:
+	endbr64
+	vmovq	%xmm0, %rax
+	ret
+	.size	double2bits, .-double2bits
+	.globl	double2ulong
+	.type	double2ulong, @function
+double2ulong:
+	endbr64
+	vcomisd	.LC0(%rip), %xmm0
+	jnb	.L3
+	vcvttsd2siq	%xmm0, %rax
+	ret
+.L3:
+	vsubsd	.LC0(%rip), %xmm0, %xmm0
+	vcvttsd2siq	%xmm0, %rax
+	btcq	$63, %rax
+	ret
+	.size	double2ulong, .-double2ulong
+	.globl	ulong2double
+	.type	ulong2double, @function
+ulong2double:
+	endbr64
+	vmovq	%rdi, %xmm0
+	ret
+	.size	ulong2double, .-ulong2double
+	.globl	uu2double
+	.type	uu2double, @function
+uu2double:
+	endbr64
+	salq	$32, %rsi
+	movl	%edi, %edi
+	orq	%rsi, %rdi
+	vmovq	%rdi, %xmm0
+	ret
+	.size	uu2double, .-uu2double
+	.globl	uconvert
+	.type	uconvert, @function
+uconvert:
+	endbr64
+	vxorps	%xmm0, %xmm0, %xmm0
+	testq	%rdi, %rdi
+	js	.L8
+	vcvtsi2sdq	%rdi, %xmm0, %xmm0
+	ret
+.L8:
+	movq	%rdi, %rax
+	shrq	%rax
+	andl	$1, %edi
+	orq	%rdi, %rax
+	vcvtsi2sdq	%rax, %xmm0, %xmm0
+	vaddsd	%xmm0, %xmm0, %xmm0
+	ret
+	.size	uconvert, .-uconvert
+	.globl	iconvert
+	.type	iconvert, @function
+iconvert:
+	endbr64
+	vxorps	%xmm0, %xmm0, %xmm0
+	vcvtsi2sdq	%rdi, %xmm0, %xmm0
+	ret
+	.size	iconvert, .-iconvert
+	.section	.rodata.cst8,"aM",@progbits,8
+	.align 8
+.LC0:
+	.long	0
+	.long	1138753536
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

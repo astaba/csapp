@@ -1,0 +1,371 @@
+	.file	"w240-cnt.c"
+	.text
+	.globl	thread
+	.type	thread, @function
+thread:
+	endbr64
+	pushq	%rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	movl	(%rdi), %ebp
+	movl	$0, %ebx
+	jmp	.L2
+.L3:
+	leaq	cnt(%rip), %rdi
+	call	*incr_fun(%rip)
+	addl	$1, %ebx
+.L2:
+	cmpl	%ebp, %ebx
+	jl	.L3
+	movl	$0, %eax
+	addq	$8, %rsp
+	popq	%rbx
+	popq	%rbp
+	ret
+	.size	thread, .-thread
+	.globl	bad_incr
+	.type	bad_incr, @function
+bad_incr:
+	endbr64
+	movl	(%rdi), %eax
+	addl	$1, %eax
+	movl	%eax, (%rdi)
+	ret
+	.size	bad_incr, .-bad_incr
+	.globl	lock_incr
+	.type	lock_incr, @function
+lock_incr:
+	endbr64
+#APP
+# 114 "w240-cnt.c" 1
+	lock            # Insert lock prefix
+	addl $1, (%rdi)   # Increment *ptr
+# 0 "" 2
+#NO_APP
+	ret
+	.size	lock_incr, .-lock_incr
+	.globl	mutex_incr
+	.type	mutex_incr, @function
+mutex_incr:
+	endbr64
+	pushq	%rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	movq	%rdi, %rbx
+	leaq	mutex(%rip), %rbp
+	movq	%rbp, %rdi
+	call	pthread_mutex_lock@PLT
+	movl	(%rbx), %eax
+	addl	$1, %eax
+	movl	%eax, (%rbx)
+	movq	%rbp, %rdi
+	call	pthread_mutex_unlock@PLT
+	addq	$8, %rsp
+	popq	%rbx
+	popq	%rbp
+	ret
+	.size	mutex_incr, .-mutex_incr
+	.globl	sem_incr
+	.type	sem_incr, @function
+sem_incr:
+	endbr64
+	pushq	%rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	movq	%rdi, %rbx
+	leaq	sem(%rip), %rbp
+	movq	%rbp, %rdi
+	call	sem_wait@PLT
+	movl	(%rbx), %eax
+	addl	$1, %eax
+	movl	%eax, (%rbx)
+	movq	%rbp, %rdi
+	call	sem_post@PLT
+	addq	$8, %rsp
+	popq	%rbx
+	popq	%rbp
+	ret
+	.size	sem_incr, .-sem_incr
+	.section	.rodata.str1.1,"aMS",@progbits,1
+.LC2:
+	.string	"BOOM!\t"
+.LC3:
+	.string	"OK\t"
+.LC4:
+	.string	"%d\t%s\t%d\t%.1f\n"
+	.text
+	.globl	run_test
+	.type	run_test, @function
+run_test:
+	endbr64
+	pushq	%rbp
+	movq	%rsp, %rbp
+	pushq	%r14
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbx
+	subq	$48, %rsp
+	movl	%edi, -68(%rbp)
+	movl	%esi, %r12d
+	movq	%fs:40, %rax
+	movq	%rax, -40(%rbp)
+	xorl	%eax, %eax
+	movslq	%esi, %rax
+	leaq	15(,%rax,8), %rax
+	movq	%rax, %rsi
+	andq	$-16, %rsi
+	andq	$-4096, %rax
+	movq	%rsp, %rcx
+	subq	%rax, %rcx
+.L12:
+	cmpq	%rcx, %rsp
+	je	.L13
+	subq	$4096, %rsp
+	orq	$0, 4088(%rsp)
+	jmp	.L12
+.L13:
+	movq	%rsi, %rax
+	andl	$4095, %eax
+	subq	%rax, %rsp
+	testq	%rax, %rax
+	je	.L14
+	orq	$0, -8(%rsp,%rax)
+.L14:
+	movq	%rsp, %r13
+	movslq	%edx, %rdx
+	leaq	inames(%rip), %rax
+	movq	(%rax,%rdx,8), %r14
+	leaq	incrs(%rip), %rax
+	movq	(%rax,%rdx,8), %rax
+	movq	%rax, incr_fun(%rip)
+	movl	$0, cnt(%rip)
+	movl	$1, %edx
+	movl	$0, %esi
+	leaq	sem(%rip), %rdi
+	call	sem_init@PLT
+	movl	$0, %esi
+	leaq	mutex(%rip), %rdi
+	call	pthread_mutex_init@PLT
+	leaq	-64(%rbp), %rdi
+	movl	$0, %esi
+	call	gettimeofday@PLT
+	vxorpd	%xmm5, %xmm5, %xmm5
+	vcvtsi2sdq	-64(%rbp), %xmm5, %xmm1
+	vmulsd	.LC0(%rip), %xmm1, %xmm1
+	vcvtsi2sdq	-56(%rbp), %xmm5, %xmm0
+	vmulsd	.LC1(%rip), %xmm0, %xmm0
+	vaddsd	%xmm0, %xmm1, %xmm6
+	vmovsd	%xmm6, -80(%rbp)
+	movl	$0, %ebx
+	jmp	.L15
+.L16:
+	leaq	-68(%rbp), %rcx
+	movslq	%ebx, %rax
+	leaq	0(%r13,%rax,8), %rdi
+	leaq	thread(%rip), %rdx
+	movl	$0, %esi
+	call	pthread_create@PLT
+	addl	$1, %ebx
+.L15:
+	cmpl	%r12d, %ebx
+	jl	.L16
+	movl	$0, %ebx
+	jmp	.L17
+.L18:
+	movslq	%ebx, %rax
+	movq	0(%r13,%rax,8), %rdi
+	movl	$0, %esi
+	call	pthread_join@PLT
+	addl	$1, %ebx
+.L17:
+	cmpl	%r12d, %ebx
+	jl	.L18
+	leaq	-64(%rbp), %rdi
+	movl	$0, %esi
+	call	gettimeofday@PLT
+	vxorpd	%xmm2, %xmm2, %xmm2
+	vcvtsi2sdq	-64(%rbp), %xmm2, %xmm0
+	vmulsd	.LC0(%rip), %xmm0, %xmm0
+	vcvtsi2sdq	-56(%rbp), %xmm2, %xmm1
+	vmulsd	.LC1(%rip), %xmm1, %xmm1
+	vaddsd	%xmm1, %xmm0, %xmm0
+	vsubsd	-80(%rbp), %xmm0, %xmm0
+	movl	-68(%rbp), %eax
+	vcvtsi2sdl	%eax, %xmm2, %xmm1
+	vdivsd	%xmm1, %xmm0, %xmm4
+	vmovq	%xmm4, %rbx
+	imull	%r12d, %eax
+	movl	cnt(%rip), %edx
+	cmpl	%edx, %eax
+	je	.L19
+	leaq	.LC2(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+.L20:
+	movl	cnt(%rip), %edx
+	vmovq	%rbx, %xmm0
+	movl	%r12d, %r8d
+	movq	%r14, %rcx
+	leaq	.LC4(%rip), %rsi
+	movl	$2, %edi
+	movl	$1, %eax
+	call	__printf_chk@PLT
+	movl	$0, %edi
+	call	exit@PLT
+.L19:
+	leaq	.LC3(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	jmp	.L20
+	.size	run_test, .-run_test
+	.section	.rodata.str1.8,"aMS",@progbits,1
+	.align 8
+.LC5:
+	.string	"usage: %s <niters> [<nthreads> [<incrfun>]]\n"
+	.align 8
+.LC6:
+	.string	"incrfun must be between 0 and %d\n"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+	endbr64
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	movq	%rsi, %rbp
+	leal	-2(%rdi), %eax
+	cmpl	$2, %eax
+	jbe	.L24
+	movq	(%rsi), %rdx
+	leaq	.LC5(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	movl	$0, %edi
+	call	exit@PLT
+.L24:
+	movl	%edi, %ebx
+	movq	8(%rsi), %rdi
+	movl	$10, %edx
+	movl	$0, %esi
+	call	strtol@PLT
+	movl	%eax, %r13d
+	cmpl	$2, %ebx
+	jle	.L26
+	movq	16(%rbp), %rdi
+	movl	$10, %edx
+	movl	$0, %esi
+	call	strtol@PLT
+	movl	%eax, %r12d
+	cmpl	$3, %ebx
+	jg	.L29
+	movl	$0, %edx
+	jmp	.L25
+.L29:
+	movq	24(%rbp), %rdi
+	movl	$10, %edx
+	movl	$0, %esi
+	call	strtol@PLT
+	movl	%eax, %edx
+	cmpl	$3, %eax
+	jbe	.L25
+	movl	$4, %edx
+	leaq	.LC6(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	movl	$0, %edi
+	call	exit@PLT
+.L26:
+	movl	$2, %r12d
+	movl	$0, %edx
+.L25:
+	movl	%r12d, %esi
+	movl	%r13d, %edi
+	call	run_test
+	.size	main, .-main
+	.globl	mutex
+	.bss
+	.align 32
+	.type	mutex, @object
+	.size	mutex, 40
+mutex:
+	.zero	40
+	.globl	sem
+	.align 32
+	.type	sem, @object
+	.size	sem, 32
+sem:
+	.zero	32
+	.globl	cnt
+	.align 4
+	.type	cnt, @object
+	.size	cnt, 4
+cnt:
+	.zero	4
+	.globl	incr_fun
+	.align 8
+	.type	incr_fun, @object
+	.size	incr_fun, 8
+incr_fun:
+	.zero	8
+	.globl	inames
+	.section	.rodata.str1.1
+.LC7:
+	.string	"bad"
+.LC8:
+	.string	"lock"
+.LC9:
+	.string	"mutex"
+.LC10:
+	.string	"sem"
+	.section	.data.rel.local,"aw"
+	.align 32
+	.type	inames, @object
+	.size	inames, 32
+inames:
+	.quad	.LC7
+	.quad	.LC8
+	.quad	.LC9
+	.quad	.LC10
+	.globl	incrs
+	.align 32
+	.type	incrs, @object
+	.size	incrs, 32
+incrs:
+	.quad	bad_incr
+	.quad	lock_incr
+	.quad	mutex_incr
+	.quad	sem_incr
+	.section	.rodata.cst8,"aM",@progbits,8
+	.align 8
+.LC0:
+	.long	0
+	.long	1104006501
+	.align 8
+.LC1:
+	.long	0
+	.long	1083129856
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

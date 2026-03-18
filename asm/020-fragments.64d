@@ -1,0 +1,87 @@
+
+020-fragments.64o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <moveg>:
+   0:	48 b8 77 66 55 44 33 	movabs $0x11223344556677,%rax
+   7:	22 11 00 
+   a:	b0 ff                	mov    $0xff,%al
+   c:	66 b8 ff ff          	mov    $0xffff,%ax
+  10:	b8 ff ff ff ff       	mov    $0xffffffff,%eax
+  15:	48 c7 c0 ff ff ff ff 	mov    $0xffffffffffffffff,%rax
+
+000000000000001c <movmix>:
+  1c:	b8 50 40 00 00       	mov    $0x4050,%eax
+  21:	66 89 ec             	mov    %bp,%sp
+  24:	8a 04 0f             	mov    (%rdi,%rcx,1),%al
+  27:	c6 04 24 ef          	movb   $0xef,(%rsp)
+  2b:	48 89 45 f4          	mov    %rax,-0xc(%rbp)
+
+000000000000002f <cmov>:
+  2f:	48 0f 4d 10          	cmovge (%rax),%rdx
+  33:	0f 4d 10             	cmovge (%rax),%edx
+  36:	66 0f 4d 10          	cmovge (%rax),%dx
+
+000000000000003a <pushq>:
+  3a:	48 83 ec 08          	sub    $0x8,%rsp
+  3e:	48 89 2c 24          	mov    %rbp,(%rsp)
+
+0000000000000042 <popq>:
+  42:	48 8b 04 24          	mov    (%rsp),%rax
+  46:	48 83 c4 08          	add    $0x8,%rsp
+
+000000000000004a <words_suffix>:
+  4a:	88 d8                	mov    %bl,%al
+  4c:	66 89 d8             	mov    %bx,%ax
+  4f:	89 d8                	mov    %ebx,%eax
+  51:	48 89 d8             	mov    %rbx,%rax
+
+0000000000000054 <words>:
+  54:	88 d8                	mov    %bl,%al
+  56:	66 89 d8             	mov    %bx,%ax
+  59:	89 d8                	mov    %ebx,%eax
+  5b:	48 89 d8             	mov    %rbx,%rax
+
+000000000000005e <byte_move>:
+  5e:	48 b8 77 66 55 44 33 	movabs $0x11223344556677,%rax
+  65:	22 11 00 
+  68:	b2 aa                	mov    $0xaa,%dl
+  6a:	88 d0                	mov    %dl,%al
+  6c:	48 0f be c2          	movsbq %dl,%rax
+  70:	48 0f b6 c2          	movzbq %dl,%rax
+
+0000000000000074 <jump>:
+  74:	48 c7 c0 00 00 00 00 	mov    $0x0,%rax
+  7b:	eb 03                	jmp    80 <jump+0xc>
+  7d:	48 8b 10             	mov    (%rax),%rdx
+  80:	5a                   	pop    %rdx
+
+0000000000000081 <pc_trick>:
+  81:	e8 00 00 00 00       	call   86 <next>
+
+0000000000000086 <next>:
+  86:	58                   	pop    %rax
+
+0000000000000087 <idivq>:
+  87:	48 89 f0             	mov    %rsi,%rax
+  8a:	48 98                	cltq
+  8c:	48 f7 ff             	idiv   %rdi
+  8f:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+  94:	48 89 14 24          	mov    %rdx,(%rsp)
+
+0000000000000098 <divq>:
+  98:	48 89 f0             	mov    %rsi,%rax
+  9b:	48 c7 c2 00 00 00 00 	mov    $0x0,%rdx
+  a2:	48 f7 f7             	div    %rdi
+  a5:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+  aa:	48 89 14 24          	mov    %rdx,(%rsp)
+  ae:	48 31 d2             	xor    %rdx,%rdx
+  b1:	48 c7 c2 00 00 00 00 	mov    $0x0,%rdx
+
+00000000000000b8 <test>:
+  b8:	31 d2                	xor    %edx,%edx
+  ba:	48 31 d2             	xor    %rdx,%rdx
+  bd:	48 c7 c2 00 00 00 00 	mov    $0x0,%rdx
+  c4:	ba 00 00 00 00       	mov    $0x0,%edx

@@ -1,0 +1,61 @@
+	.file	"w110-procreg.c"
+	.text
+	.globl	proc
+	.type	proc, @function
+proc:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ebx
+	movl	12(%ebp), %ebx
+	movl	20(%ebp), %ecx
+	movl	28(%ebp), %edx
+	movl	(%ebx), %eax
+	addl	8(%ebp), %eax
+	movl	%eax, (%ebx)
+	movzwl	(%ecx), %eax
+	addw	16(%ebp), %ax
+	movw	%ax, (%ecx)
+	movzbl	(%edx), %eax
+	addb	24(%ebp), %al
+	movb	%al, (%edx)
+	movl	-4(%ebp), %ebx
+	leave
+	ret
+	.size	proc, .-proc
+	.globl	call_proc
+	.type	call_proc, @function
+call_proc:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$32, %esp
+	movl	%gs:20, %eax
+	movl	%eax, -12(%ebp)
+	xorl	%eax, %eax
+	movl	$2, -16(%ebp)
+	movw	$3, -18(%ebp)
+	movb	$4, -19(%ebp)
+	leal	-19(%ebp), %eax
+	pushl	%eax
+	pushl	$4
+	leal	-18(%ebp), %eax
+	pushl	%eax
+	pushl	$3
+	leal	-16(%ebp), %eax
+	pushl	%eax
+	pushl	$2
+	call	proc
+	movswl	-18(%ebp), %eax
+	movsbl	-19(%ebp), %edx
+	subl	%edx, %eax
+	imull	-16(%ebp), %eax
+	movl	-12(%ebp), %edx
+	subl	%gs:20, %edx
+	jne	.L6
+	leave
+	ret
+.L6:
+	call	__stack_chk_fail_local
+	.size	call_proc, .-call_proc
+	.hidden	__stack_chk_fail_local
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits

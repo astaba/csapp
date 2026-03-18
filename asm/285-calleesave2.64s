@@ -1,0 +1,61 @@
+	.file	"285-calleesave2.c"
+	.text
+	.globl	P
+	.type	P, @function
+P:
+	endbr64
+	pushq	%r15
+	pushq	%r14
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbp
+	pushq	%rbx
+	subq	$24, %rsp
+	movq	%rdi, %rbx
+	leaq	1(%rdi), %r15
+	leaq	2(%rdi), %r14
+	leaq	3(%rdi), %r13
+	leaq	4(%rdi), %r12
+	leaq	5(%rdi), %rbp
+	leaq	6(%rdi), %rax
+	movq	%rax, (%rsp)
+	leaq	7(%rdi), %rcx
+	movq	%rcx, 8(%rsp)
+	movl	$0, %eax
+	call	Q@PLT
+	leaq	(%rbx,%r15), %rax
+	addq	%r14, %rax
+	addq	%r13, %rax
+	addq	%r12, %rax
+	addq	%rbp, %rax
+	movq	(%rsp), %rdx
+	addq	%rdx, %rax
+	movq	8(%rsp), %rcx
+	addq	%rcx, %rax
+	addq	$24, %rsp
+	popq	%rbx
+	popq	%rbp
+	popq	%r12
+	popq	%r13
+	popq	%r14
+	popq	%r15
+	ret
+	.size	P, .-P
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

@@ -1,0 +1,69 @@
+	.file	"430-struct-union.c"
+	.text
+	.globl	get_u
+	.type	get_u, @function
+get_u:
+	endbr64
+	movq	(%rdi), %rax
+	movq	%rax, (%rsi)
+	ret
+	.size	get_u, .-get_u
+	.globl	get_v
+	.type	get_v, @function
+get_v:
+	endbr64
+	movzwl	8(%rdi), %eax
+	movw	%ax, (%rsi)
+	ret
+	.size	get_v, .-get_v
+	.globl	get_wp
+	.type	get_wp, @function
+get_wp:
+	endbr64
+	addq	$10, %rdi
+	movq	%rdi, (%rsi)
+	ret
+	.size	get_wp, .-get_wp
+	.globl	get_a
+	.type	get_a, @function
+get_a:
+	endbr64
+	movq	%rdi, (%rsi)
+	ret
+	.size	get_a, .-get_a
+	.globl	get_au
+	.type	get_au, @function
+get_au:
+	endbr64
+	movq	(%rdi), %rax
+	movl	(%rdi,%rax,4), %eax
+	movl	%eax, (%rsi)
+	ret
+	.size	get_au, .-get_au
+	.globl	get_pval
+	.type	get_pval, @function
+get_pval:
+	endbr64
+	movq	8(%rdi), %rax
+	movzbl	(%rax), %eax
+	movb	%al, (%rsi)
+	ret
+	.size	get_pval, .-get_pval
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

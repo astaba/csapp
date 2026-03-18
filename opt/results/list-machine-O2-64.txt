@@ -1,0 +1,21 @@
+Description: Iterative List Length, f(1024) = 1024, Processor Clock Rate ~= 2.3040 GHz (extracted from file)
+CPE = 4.03
+Description: Iterative List Sum, f(1024) = 523776, CPE = 4.09
+Description: Pipelined List Sum with old, f(1024) = 523776, CPE = 4.08
+Description: Pipelined List Sum with new, f(1024) = 523776, CPE = 4.13
+Description: Recursive List Length, f(1024) = 1024, CPE = 4.06
+Description: Recursive List Sum, f(1024) = 523776, CPE = 4.09
+Description: List Length with Clear, f(1024) = 1024, CPE = 4.29
+Description: List Sum with Clear, f(1024) = 523776, CPE = 4.10
+Description: List Copy, list --> list, CPE = 4.11
+Description: List Copy, list --> list->next, CPE = 4.09
+Description: List Copy, list->next --> list, CPE = 4.08
+Description: Pipelined List Copy Do-While, list --> list, CPE = 4.46
+Description: Pipelined List Copy Do-While, list --> list->next, CPE = 4.58
+Description: Pipelined List Copy Do-While, list->next --> list, CPE = 4.21
+Description: Pipelined List Copy While, list --> list, CPE = 4.12
+Description: Pipelined List Copy While, list --> list->next, CPE = 4.17
+Description: Pipelined List Copy While, list->next --> list, CPE = 4.68
+Description: Stationary Copy, list --> list, CPE = 0.03
+Description: Stationary Copy, list --> list->next, CPE = 0.26
+Description: Stationary Copy, list->next --> list, CPE = 0.03

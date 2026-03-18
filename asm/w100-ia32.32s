@@ -1,0 +1,51 @@
+	.file	"w100-ia32.c"
+	.text
+	.globl	fun
+	.type	fun, @function
+fun:
+	pushl	%ebp
+	movl	%esp, %ebp
+	movl	12(%ebp), %eax
+	movl	(%eax), %eax
+	addl	8(%ebp), %eax
+	popl	%ebp
+	ret
+	.size	fun, .-fun
+	.globl	call_fun
+	.type	call_fun, @function
+call_fun:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$16, %esp
+	leal	12(%ebp), %eax
+	pushl	%eax
+	pushl	8(%ebp)
+	call	fun
+	addl	$16, %esp
+	leave
+	ret
+	.size	call_fun, .-call_fun
+	.globl	afun
+	.type	afun, @function
+afun:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$24, %esp
+	movl	%gs:20, %eax
+	movl	%eax, -12(%ebp)
+	xorl	%eax, %eax
+	movl	$33, -20(%ebp)
+	movl	$515, -16(%ebp)
+	movl	8(%ebp), %eax
+	movl	-20(%ebp,%eax,4), %eax
+	movl	-12(%ebp), %edx
+	subl	%gs:20, %edx
+	jne	.L8
+	leave
+	ret
+.L8:
+	call	__stack_chk_fail_local
+	.size	afun, .-afun
+	.hidden	__stack_chk_fail_local
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits

@@ -1,0 +1,6 @@
+Processor Clock Rate ~= 2.3040 GHz (extracted from file)
+A1 CPE = 4.02
+A2 CPE = 2.61
+A3 CPE = 1.31
+A4 CPE = 1.35
+A5 CPE = 2.64

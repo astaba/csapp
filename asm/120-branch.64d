@@ -1,0 +1,20 @@
+
+120-branch.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <loop>:
+   0:	f3 0f 1e fa          	endbr64
+   4:	48 89 f8             	mov    %rdi,%rax
+   7:	eb 03                	jmp    c <loop+0xc>
+   9:	48 d1 f8             	sar    $1,%rax
+   c:	48 85 c0             	test   %rax,%rax
+   f:	7f f8                	jg     9 <loop+0x9>
+  11:	c3                   	ret
+
+0000000000000012 <main>:
+  12:	f3 0f 1e fa          	endbr64
+  16:	48 c7 c7 fe ff ff ff 	mov    $0xfffffffffffffffe,%rdi
+  1d:	e8 00 00 00 00       	call   22 <main+0x10>
+  22:	c3                   	ret

@@ -1,0 +1,79 @@
+	.file	"370-rect.c"
+	.text
+	.globl	nothing
+	.type	nothing, @function
+nothing:
+	endbr64
+	pushq	%rbp
+	movq	%rsp, %rbp
+	movq	%rdi, %rax
+	movq	$0, -40(%rsp)
+	movq	$0, -48(%rsp)
+	movl	$16711935, -16(%rsp)
+	movq	$10, -32(%rsp)
+	movq	$20, -24(%rsp)
+	vmovdqu	-48(%rsp), %ymm0
+	vmovdqu	%ymm0, (%rdi)
+	movq	-16(%rsp), %rdx
+	movq	%rdx, 32(%rdi)
+	popq	%rbp
+	ret
+	.size	nothing, .-nothing
+	.globl	nothing2
+	.type	nothing2, @function
+nothing2:
+	endbr64
+	pushq	%rbp
+	movq	%rsp, %rbp
+	movq	%rdi, %rax
+	movq	$0, -48(%rsp)
+	movq	$0, -40(%rsp)
+	movq	$10, -32(%rsp)
+	movq	$20, -24(%rsp)
+	movl	$16711935, -16(%rsp)
+	vmovdqu	-48(%rsp), %ymm0
+	vmovdqu	%ymm0, (%rdi)
+	movq	-16(%rsp), %rdx
+	movq	%rdx, 32(%rdi)
+	popq	%rbp
+	ret
+	.size	nothing2, .-nothing2
+	.globl	area
+	.type	area, @function
+area:
+	endbr64
+	movq	24(%rdi), %rax
+	imulq	16(%rdi), %rax
+	ret
+	.size	area, .-area
+	.globl	rotate_left
+	.type	rotate_left, @function
+rotate_left:
+	endbr64
+	movq	24(%rdi), %rdx
+	movq	16(%rdi), %rax
+	movq	%rax, 24(%rdi)
+	movq	%rdx, 16(%rdi)
+	movq	(%rdi), %rax
+	subq	%rdx, %rax
+	movq	%rax, (%rdi)
+	ret
+	.size	rotate_left, .-rotate_left
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

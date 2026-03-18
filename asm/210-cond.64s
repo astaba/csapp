@@ -1,0 +1,189 @@
+	.file	"210-cond.c"
+	.text
+	.globl	max
+	.type	max, @function
+max:
+	endbr64
+	cmpq	%rsi, %rdi
+	movq	%rsi, %rax
+	cmovge	%rdi, %rax
+	ret
+	.size	max, .-max
+	.globl	wa_max
+	.type	wa_max, @function
+wa_max:
+	endbr64
+	cmpq	%rsi, %rdi
+	jge	.L3
+	leaq	17(%rsi), %rax
+	ret
+.L3:
+	leaq	23(%rdi), %rax
+	ret
+	.size	wa_max, .-wa_max
+	.globl	wm_max
+	.type	wm_max, @function
+wm_max:
+	endbr64
+	cmpq	%rsi, %rdi
+	jge	.L6
+	movq	%rsi, %rax
+	salq	$4, %rax
+	addq	%rsi, %rax
+	ret
+.L6:
+	leaq	(%rdi,%rdi,2), %rax
+	salq	$3, %rax
+	subq	%rdi, %rax
+	ret
+	.size	wm_max, .-wm_max
+	.globl	wm_max2
+	.type	wm_max2, @function
+wm_max2:
+	endbr64
+	movq	%rdi, %rax
+	cmpq	%rsi, %rdi
+	jge	.L9
+	movq	%rsi, %rax
+	salq	$4, %rax
+.L9:
+	ret
+	.size	wm_max2, .-wm_max2
+	.globl	wm_max3
+	.type	wm_max3, @function
+wm_max3:
+	endbr64
+	movq	%rdi, %rax
+	cmpq	%rsi, %rdi
+	jge	.L11
+	movq	%rsi, %rax
+	salq	$4, %rax
+	addq	%rsi, %rax
+.L11:
+	ret
+	.size	wm_max3, .-wm_max3
+	.globl	intabs
+	.type	intabs, @function
+intabs:
+	endbr64
+	movq	%rdi, %rax
+	negq	%rax
+	cmovs	%rdi, %rax
+	ret
+	.size	intabs, .-intabs
+	.globl	cmul
+	.type	cmul, @function
+cmul:
+	endbr64
+	movq	%rsi, %rax
+	testq	%rsi, %rsi
+	je	.L14
+	imulq	%rdi, %rax
+.L14:
+	ret
+	.size	cmul, .-cmul
+	.globl	cmul2
+	.type	cmul2, @function
+cmul2:
+	endbr64
+	cmpq	$1, %rsi
+	je	.L17
+	movq	%rsi, %rax
+	imulq	%rdi, %rax
+	ret
+.L17:
+	movq	%rdi, %rax
+	ret
+	.size	cmul2, .-cmul2
+	.globl	cdiv
+	.type	cdiv, @function
+cdiv:
+	endbr64
+	testq	%rsi, %rsi
+	je	.L19
+	movq	%rdi, %rax
+	cqto
+	idivq	%rsi
+	movq	%rax, %rsi
+.L19:
+	movq	%rsi, %rax
+	ret
+	.size	cdiv, .-cdiv
+	.globl	cdiv2
+	.type	cdiv2, @function
+cdiv2:
+	endbr64
+	movq	%rdi, %rax
+	cmpq	$1, %rsi
+	je	.L20
+	cqto
+	idivq	%rsi
+.L20:
+	ret
+	.size	cdiv2, .-cdiv2
+	.globl	cread
+	.type	cread, @function
+cread:
+	endbr64
+	testq	%rdi, %rdi
+	je	.L25
+	movq	(%rdi), %rax
+	ret
+.L25:
+	movl	$0, %eax
+	ret
+	.size	cread, .-cread
+	.globl	cread_invalid
+	.type	cread_invalid, @function
+cread_invalid:
+	endbr64
+	movq	(%rdi), %rax
+	ret
+	.size	cread_invalid, .-cread_invalid
+	.globl	se_max
+	.type	se_max, @function
+se_max:
+	endbr64
+	movq	%rdi, %rax
+	cmpq	%rsi, %rdi
+	jge	.L28
+	addq	$1, lcount(%rip)
+	movq	%rsi, %rax
+.L28:
+	ret
+	.size	se_max, .-se_max
+	.globl	arith
+	.type	arith, @function
+arith:
+	endbr64
+	leaq	7(%rdi), %rax
+	testq	%rdi, %rdi
+	cmovns	%rdi, %rax
+	sarq	$3, %rax
+	ret
+	.size	arith, .-arith
+	.globl	lcount
+	.bss
+	.align 8
+	.type	lcount, @object
+	.size	lcount, 8
+lcount:
+	.zero	8
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

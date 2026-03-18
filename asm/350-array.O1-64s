@@ -1,0 +1,250 @@
+	.file	"350-array.c"
+	.text
+	.globl	get_value
+	.type	get_value, @function
+get_value:
+	endbr64
+	leaq	(%rsi,%rsi,2), %rax
+	leaq	(%rdi,%rax,4), %rax
+	movl	(%rax,%rdx,4), %eax
+	ret
+	.size	get_value, .-get_value
+	.globl	get_value2
+	.type	get_value2, @function
+get_value2:
+	endbr64
+	movq	(%rdi,%rsi,8), %rax
+	movl	(%rax,%rdx,8), %eax
+	ret
+	.size	get_value2, .-get_value2
+	.globl	new_fix_matrix
+	.type	new_fix_matrix, @function
+new_fix_matrix:
+	endbr64
+	subq	$8, %rsp
+	movl	$1024, %edi
+	call	malloc@PLT
+	addq	$8, %rsp
+	ret
+	.size	new_fix_matrix, .-new_fix_matrix
+	.globl	fix_prod_ele
+	.type	fix_prod_ele, @function
+fix_prod_ele:
+	endbr64
+	salq	$6, %rdx
+	addq	%rdx, %rdi
+	leaq	(%rsi,%rcx,4), %rax
+	leaq	1024(%rax), %rsi
+	movl	$0, %ecx
+.L6:
+	movl	(%rdi), %edx
+	imull	(%rax), %edx
+	addl	%edx, %ecx
+	addq	$4, %rdi
+	addq	$64, %rax
+	cmpq	%rsi, %rax
+	jne	.L6
+	movl	%ecx, %eax
+	ret
+	.size	fix_prod_ele, .-fix_prod_ele
+	.globl	fix_prod_ele_opt
+	.type	fix_prod_ele_opt, @function
+fix_prod_ele_opt:
+	endbr64
+	salq	$6, %rdx
+	addq	%rdx, %rdi
+	salq	$2, %rcx
+	leaq	(%rsi,%rcx), %rax
+	leaq	1024(%rsi,%rcx), %rsi
+	movl	$0, %ecx
+.L9:
+	movl	(%rdi), %edx
+	imull	(%rax), %edx
+	addl	%edx, %ecx
+	addq	$4, %rdi
+	addq	$64, %rax
+	cmpq	%rax, %rsi
+	jne	.L9
+	movl	%ecx, %eax
+	ret
+	.size	fix_prod_ele_opt, .-fix_prod_ele_opt
+	.globl	fix_set_diag
+	.type	fix_set_diag, @function
+fix_set_diag:
+	endbr64
+	movq	%rdi, %rax
+	leaq	1088(%rdi), %rdx
+.L12:
+	movl	%esi, (%rax)
+	addq	$68, %rax
+	cmpq	%rdx, %rax
+	jne	.L12
+	ret
+	.size	fix_set_diag, .-fix_set_diag
+	.globl	fix_set_diag_opt
+	.type	fix_set_diag_opt, @function
+fix_set_diag_opt:
+	endbr64
+	movq	%rdi, %rax
+	leaq	1088(%rdi), %rdx
+.L15:
+	movl	%esi, (%rax)
+	addq	$68, %rax
+	cmpq	%rdx, %rax
+	jne	.L15
+	ret
+	.size	fix_set_diag_opt, .-fix_set_diag_opt
+	.globl	fix_ele
+	.type	fix_ele, @function
+fix_ele:
+	endbr64
+	movslq	%esi, %rsi
+	salq	$6, %rsi
+	addq	%rsi, %rdi
+	movslq	%edx, %rdx
+	movl	(%rdi,%rdx,4), %eax
+	ret
+	.size	fix_ele, .-fix_ele
+	.globl	new_var_matrix
+	.type	new_var_matrix, @function
+new_var_matrix:
+	endbr64
+	subq	$8, %rsp
+	imulq	%rdi, %rdi
+	salq	$2, %rdi
+	call	malloc@PLT
+	addq	$8, %rsp
+	ret
+	.size	new_var_matrix, .-new_var_matrix
+	.globl	var_ele
+	.type	var_ele, @function
+var_ele:
+	endbr64
+	imulq	%rdx, %rdi
+	leaq	(%rdi,%rcx), %rax
+	movl	(%rsi,%rax,4), %eax
+	ret
+	.size	var_ele, .-var_ele
+	.globl	pvar_ele
+	.type	pvar_ele, @function
+pvar_ele:
+	endbr64
+	imulq	%rdx, %rdi
+	leaq	(%rdi,%rcx), %rax
+	movl	(%rsi,%rax,4), %eax
+	ret
+	.size	pvar_ele, .-pvar_ele
+	.globl	var_prod_ele
+	.type	var_prod_ele, @function
+var_prod_ele:
+	endbr64
+	testq	%rdi, %rdi
+	jle	.L25
+	imulq	%rdi, %rcx
+	leaq	(%rsi,%rcx,4), %r10
+	leaq	0(,%rdi,4), %r9
+	leaq	(%rdx,%r8,4), %rcx
+	movl	$0, %esi
+	movl	$0, %eax
+.L24:
+	movl	(%r10,%rax,4), %edx
+	imull	(%rcx), %edx
+	addl	%edx, %esi
+	addq	$1, %rax
+	addq	%r9, %rcx
+	cmpq	%rax, %rdi
+	jne	.L24
+.L22:
+	movl	%esi, %eax
+	ret
+.L25:
+	movl	$0, %esi
+	jmp	.L22
+	.size	var_prod_ele, .-var_prod_ele
+	.globl	var_prod_ele_opt
+	.type	var_prod_ele_opt, @function
+var_prod_ele_opt:
+	endbr64
+	imulq	%rdi, %rcx
+	leaq	(%rdx,%r8,4), %r8
+	testq	%rdi, %rdi
+	jle	.L30
+	leaq	0(,%rdi,4), %r9
+	leaq	(%rsi,%rcx,4), %rax
+	addq	%rcx, %rdi
+	leaq	(%rsi,%rdi,4), %rsi
+	movl	$0, %ecx
+.L29:
+	movl	(%rax), %edx
+	imull	(%r8), %edx
+	addl	%edx, %ecx
+	addq	%r9, %r8
+	addq	$4, %rax
+	cmpq	%rsi, %rax
+	jne	.L29
+.L27:
+	movl	%ecx, %eax
+	ret
+.L30:
+	movl	$0, %ecx
+	jmp	.L27
+	.size	var_prod_ele_opt, .-var_prod_ele_opt
+	.globl	B
+	.section	.data.rel.local,"aw"
+	.align 32
+	.type	B, @object
+	.size	B, 32
+B:
+	.quad	row0
+	.quad	row1
+	.quad	row2
+	.quad	row3
+	.globl	row3
+	.bss
+	.align 8
+	.type	row3, @object
+	.size	row3, 12
+row3:
+	.zero	12
+	.globl	row2
+	.align 8
+	.type	row2, @object
+	.size	row2, 12
+row2:
+	.zero	12
+	.globl	row1
+	.align 8
+	.type	row1, @object
+	.size	row1, 12
+row1:
+	.zero	12
+	.globl	row0
+	.align 8
+	.type	row0, @object
+	.size	row0, 12
+row0:
+	.zero	12
+	.globl	A
+	.align 32
+	.type	A, @object
+	.size	A, 60
+A:
+	.zero	60
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

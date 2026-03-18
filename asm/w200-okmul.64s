@@ -1,0 +1,436 @@
+	.file	"w200-okmul.c"
+	.text
+	.globl	tmult_ok1
+	.type	tmult_ok1, @function
+tmult_ok1:
+	endbr64
+	imulq	%rsi, %rdi
+	movq	%rdi, (%rdx)
+#APP
+# 23 "w200-okmul.c" 1
+	setae %al
+# 0 "" 2
+#NO_APP
+	movl	$0, %eax
+	ret
+	.size	tmult_ok1, .-tmult_ok1
+	.globl	tmult_ok2
+	.type	tmult_ok2, @function
+tmult_ok2:
+	endbr64
+	pushq	%rbx
+	imulq	%rsi, %rdi
+	movq	%rdi, (%rdx)
+#APP
+# 34 "w200-okmul.c" 1
+	setae %bl          # Set low-order byte
+	movzbl %bl,%eax  # Zero extend to be result
+# 0 "" 2
+#NO_APP
+	popq	%rbx
+	ret
+	.size	tmult_ok2, .-tmult_ok2
+	.globl	tmult_ok3
+	.type	tmult_ok3, @function
+tmult_ok3:
+	endbr64
+	imulq	%rsi, %rdi
+	movq	%rdi, (%rdx)
+#APP
+# 51 "w200-okmul.c" 1
+	setae %al            # Set result
+# 0 "" 2
+#NO_APP
+	movzbl	%al, %eax
+	ret
+	.size	tmult_ok3, .-tmult_ok3
+	.globl	tmult_ok4
+	.type	tmult_ok4, @function
+tmult_ok4:
+	endbr64
+#APP
+# 65 "w200-okmul.c" 1
+	imulq %rdi,%rsi   # Compute y = x * y
+	setae %dil        # Set result
+# 0 "" 2
+#NO_APP
+	movq	%rsi, (%rdx)
+	movzbl	%dil, %eax
+	ret
+	.size	tmult_ok4, .-tmult_ok4
+	.globl	umult_ok
+	.type	umult_ok, @function
+umult_ok:
+	endbr64
+	movq	%rdx, %rcx
+#APP
+# 89 "w200-okmul.c" 1
+	movq %rdi,%rax      # Get x
+	mulq %rsi            # Unsigned long multiply by y
+	movq %rax,(%rcx)      # Store low-order 8 bytes at dest
+	setae %dil           # Set result
+# 0 "" 2
+#NO_APP
+	movzbl	%dil, %eax
+	ret
+	.size	umult_ok, .-umult_ok
+	.globl	tmult_sat
+	.type	tmult_sat, @function
+tmult_sat:
+	endbr64
+	movq	%rdi, %rax
+	xorq	%rsi, %rax
+	js	.L10
+	movabsq	$9223372036854775807, %rax
+.L8:
+	imulq	%rsi, %rdi
+#APP
+# 116 "w200-okmul.c" 1
+	setae %dl            # Set result
+# 0 "" 2
+#NO_APP
+	testb	%dl, %dl
+	je	.L7
+	movq	%rdi, %rax
+.L7:
+	ret
+.L10:
+	movabsq	$-9223372036854775808, %rax
+	jmp	.L8
+	.size	tmult_sat, .-tmult_sat
+	.section	.rodata.str1.1,"aMS",@progbits,1
+.LC0:
+	.string	"OK"
+.LC1:
+	.string	"ERR"
+	.section	.rodata.str1.8,"aMS",@progbits,1
+	.align 8
+.LC2:
+	.string	"Signed multiply: %ld*%ld->%ld, ok = %d\n"
+	.align 8
+.LC3:
+	.string	"%s tmult_ok_asm: %ld*%ld->%ld, ok = %d\n"
+	.align 8
+.LC4:
+	.string	"%s tmult_ok1: %ld*%ld->%ld, ok = %d\n"
+	.align 8
+.LC5:
+	.string	"%s tmult_ok2: %ld*%ld->%ld, ok = %d\n"
+	.align 8
+.LC6:
+	.string	"%s tmult_ok3: %ld*%ld->%ld, ok = %d\n"
+	.align 8
+.LC7:
+	.string	"%s tmult_ok4: %ld*%ld->%ld, ok = %d\n"
+	.align 8
+.LC8:
+	.string	"\nUnsigned long multiply: %lu*%lu->%lu, ok = %d\n"
+	.align 8
+.LC9:
+	.string	"%s umult_ok_asm: %lu*%lu->%lu, ok = %d\n"
+	.align 8
+.LC10:
+	.string	"%s umult_ok: %lu*%lu->%lu, ok = %d\n"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+	endbr64
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbp
+	pushq	%rbx
+	subq	$40, %rsp
+	movq	%fs:40, %rax
+	movq	%rax, 24(%rsp)
+	xorl	%eax, %eax
+	cmpl	$1, %edi
+	jg	.L44
+	movabsq	$4294967296, %rbx
+	movl	$4294967295, %ebp
+.L12:
+	movq	%rbx, %r12
+	imulq	%rbp, %r12
+	movl	$1, %r9d
+	movq	%r12, %r8
+	movq	%rbp, %rcx
+	movq	%rbx, %rdx
+	leaq	.LC2(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	8(%rsp), %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	tmult_ok_asm@PLT
+	movq	8(%rsp), %r9
+	cmpl	$1, %eax
+	je	.L45
+	leaq	.LC1(%rip), %rdx
+.L13:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%rbp, %r8
+	movq	%rbx, %rcx
+	leaq	.LC3(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	24(%rsp), %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	tmult_ok1
+	movq	24(%rsp), %r9
+	addq	$16, %rsp
+	cmpl	$1, %eax
+	je	.L46
+	leaq	.LC1(%rip), %rdx
+.L14:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%rbp, %r8
+	movq	%rbx, %rcx
+	leaq	.LC4(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	24(%rsp), %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	tmult_ok2
+	movq	24(%rsp), %r9
+	addq	$16, %rsp
+	cmpl	$1, %eax
+	je	.L47
+	leaq	.LC1(%rip), %rdx
+.L15:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%rbp, %r8
+	movq	%rbx, %rcx
+	leaq	.LC5(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	24(%rsp), %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	tmult_ok2
+	movq	24(%rsp), %r9
+	addq	$16, %rsp
+	cmpl	$1, %eax
+	je	.L48
+	leaq	.LC1(%rip), %rdx
+.L16:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%rbp, %r8
+	movq	%rbx, %rcx
+	leaq	.LC5(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	24(%rsp), %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	tmult_ok3
+	movq	24(%rsp), %r9
+	addq	$16, %rsp
+	cmpl	$1, %eax
+	je	.L49
+	leaq	.LC1(%rip), %rdx
+.L17:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%rbp, %r8
+	movq	%rbx, %rcx
+	leaq	.LC6(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	24(%rsp), %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	tmult_ok4
+	movq	24(%rsp), %r9
+	addq	$16, %rsp
+	cmpl	$1, %eax
+	je	.L50
+	leaq	.LC1(%rip), %rdx
+.L18:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%rbp, %r8
+	movq	%rbx, %rcx
+	leaq	.LC7(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	movq	%rbx, %r12
+	movq	%rbp, %r13
+	addq	$16, %rsp
+	testq	%rbx, %rbx
+	je	.L37
+	movq	%rbx, %rax
+	imulq	%rbp, %rax
+	movl	$0, %edx
+	divq	%rbx
+	cmpq	%rbp, %rax
+	je	.L51
+	movl	$0, %ebx
+	jmp	.L19
+.L44:
+	movl	%edi, %ebp
+	movq	%rsi, %r12
+	movq	8(%rsi), %rdi
+	movl	$0, %edx
+	movl	$0, %esi
+	call	strtol@PLT
+	movq	%rax, %rbx
+	cmpl	$2, %ebp
+	jg	.L52
+	movl	$4294967295, %ebp
+	jmp	.L12
+.L52:
+	movq	16(%r12), %rdi
+	movl	$0, %edx
+	movl	$0, %esi
+	call	strtol@PLT
+	movq	%rax, %rbp
+	jmp	.L12
+.L45:
+	cmpq	%r12, %r9
+	je	.L26
+	leaq	.LC1(%rip), %rdx
+	jmp	.L13
+.L26:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L13
+.L46:
+	cmpq	%r12, %r9
+	je	.L28
+	leaq	.LC1(%rip), %rdx
+	jmp	.L14
+.L28:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L14
+.L47:
+	cmpq	%r12, %r9
+	je	.L30
+	leaq	.LC1(%rip), %rdx
+	jmp	.L15
+.L30:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L15
+.L48:
+	cmpq	%r12, %r9
+	je	.L32
+	leaq	.LC1(%rip), %rdx
+	jmp	.L16
+.L32:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L16
+.L49:
+	cmpq	%r12, %r9
+	je	.L34
+	leaq	.LC1(%rip), %rdx
+	jmp	.L17
+.L34:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L17
+.L50:
+	cmpq	%r12, %r9
+	je	.L36
+	leaq	.LC1(%rip), %rdx
+	jmp	.L18
+.L36:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L18
+.L51:
+	movl	$1, %ebx
+	jmp	.L19
+.L37:
+	movl	$1, %ebx
+.L19:
+	movq	%r12, %rbp
+	imulq	%r13, %rbp
+	movl	%ebx, %r9d
+	movq	%rbp, %r8
+	movq	%r13, %rcx
+	movq	%r12, %rdx
+	leaq	.LC8(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	16(%rsp), %rdx
+	movq	%r13, %rsi
+	movq	%r12, %rdi
+	call	umult_ok_asm@PLT
+	movq	16(%rsp), %r9
+	cmpl	%eax, %ebx
+	je	.L53
+	leaq	.LC1(%rip), %rdx
+.L20:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%r13, %r8
+	movq	%r12, %rcx
+	leaq	.LC9(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	leaq	32(%rsp), %rdx
+	movq	%r13, %rsi
+	movq	%r12, %rdi
+	call	umult_ok
+	movq	32(%rsp), %r9
+	addq	$16, %rsp
+	cmpl	%eax, %ebx
+	je	.L54
+	leaq	.LC1(%rip), %rdx
+.L21:
+	subq	$8, %rsp
+	pushq	%rax
+	movq	%r13, %r8
+	movq	%r12, %rcx
+	leaq	.LC10(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	movl	$0, %edi
+	call	exit@PLT
+.L53:
+	cmpq	%rbp, %r9
+	je	.L40
+	leaq	.LC1(%rip), %rdx
+	jmp	.L20
+.L40:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L20
+.L54:
+	cmpq	%rbp, %r9
+	je	.L42
+	leaq	.LC1(%rip), %rdx
+	jmp	.L21
+.L42:
+	leaq	.LC0(%rip), %rdx
+	jmp	.L21
+	.size	main, .-main
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

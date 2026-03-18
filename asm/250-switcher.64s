@@ -1,0 +1,128 @@
+	.file	"250-switcher.c"
+	.text
+	.globl	switcher
+	.type	switcher, @function
+switcher:
+	endbr64
+	cmpq	$7, %rdi
+	ja	.L2
+	leaq	.L4(%rip), %r8
+	movslq	(%r8,%rdi,4), %rax
+	addq	%r8, %rax
+	notrack jmp	*%rax
+	.section	.rodata
+	.align 4
+	.align 4
+.L4:
+	.long	.L7-.L4
+	.long	.L2-.L4
+	.long	.L3-.L4
+	.long	.L2-.L4
+	.long	.L6-.L4
+	.long	.L5-.L4
+	.long	.L2-.L4
+	.long	.L3-.L4
+	.text
+.L6:
+	movq	%rdi, %rsi
+	jmp	.L2
+.L5:
+	movq	%rsi, %rdx
+	xorq	$15, %rdx
+.L7:
+	leaq	112(%rdx), %rsi
+.L2:
+	movq	%rsi, (%rcx)
+	ret
+.L3:
+	addq	%rdx, %rsi
+	salq	$2, %rsi
+	jmp	.L2
+	.size	switcher, .-switcher
+	.section	.rodata.str1.8,"aMS",@progbits,1
+	.align 8
+.LC0:
+	.string	"Switcher(%ld, %ld, %ld) --> %ld\n"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+	endbr64
+	pushq	%r13
+	pushq	%r12
+	pushq	%rbp
+	pushq	%rbx
+	subq	$56, %rsp
+	movl	%edi, %r12d
+	movq	%rsi, %r13
+	movq	%fs:40, %rax
+	movq	%rax, 40(%rsp)
+	xorl	%eax, %eax
+	movq	$1, 16(%rsp)
+	movq	$2, 24(%rsp)
+	movq	$3, 32(%rsp)
+	movl	$0, %ebx
+	jmp	.L9
+.L11:
+	movslq	%ebx, %rbp
+	movq	8(%r13,%rbp,8), %rdi
+	movl	$10, %edx
+	movl	$0, %esi
+	call	strtol@PLT
+	cltq
+	movq	%rax, 16(%rsp,%rbp,8)
+	addl	$1, %ebx
+.L9:
+	cmpl	$2, %ebx
+	jg	.L10
+	leal	-1(%r12), %eax
+	cmpl	%ebx, %eax
+	jg	.L11
+.L10:
+	movq	32(%rsp), %r12
+	movq	24(%rsp), %rbp
+	movq	16(%rsp), %rbx
+	leaq	8(%rsp), %rcx
+	movq	%r12, %rdx
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	switcher
+	movq	8(%rsp), %r9
+	movq	%r12, %r8
+	movq	%rbp, %rcx
+	movq	%rbx, %rdx
+	leaq	.LC0(%rip), %rsi
+	movl	$2, %edi
+	movl	$0, %eax
+	call	__printf_chk@PLT
+	movq	40(%rsp), %rax
+	subq	%fs:40, %rax
+	jne	.L14
+	movl	$0, %eax
+	addq	$56, %rsp
+	popq	%rbx
+	popq	%rbp
+	popq	%r12
+	popq	%r13
+	ret
+.L14:
+	call	__stack_chk_fail@PLT
+	.size	main, .-main
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

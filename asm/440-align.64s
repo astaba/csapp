@@ -1,0 +1,47 @@
+	.file	"440-align.c"
+	.text
+	.globl	bsize
+	.type	bsize, @function
+bsize:
+	endbr64
+	movl	$56, %eax
+	ret
+	.size	bsize, .-bsize
+	.globl	lsize
+	.type	lsize, @function
+lsize:
+	endbr64
+	movl	$40, %eax
+	ret
+	.size	lsize, .-lsize
+	.globl	rec
+	.bss
+	.align 32
+	.type	rec, @object
+	.size	rec, 40
+rec:
+	.zero	40
+	.globl	rec_a
+	.align 32
+	.type	rec_a, @object
+	.size	rec_a, 56
+rec_a:
+	.zero	56
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

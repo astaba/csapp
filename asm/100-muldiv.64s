@@ -1,0 +1,74 @@
+	.file	"100-muldiv.c"
+	.text
+	.globl	store_uprod
+	.type	store_uprod, @function
+store_uprod:
+	endbr64
+	movq	%rsi, %rax
+	mulq	%rdx
+	movq	%rax, (%rdi)
+	movq	%rdx, 8(%rdi)
+	ret
+	.size	store_uprod, .-store_uprod
+	.globl	store_prod
+	.type	store_prod, @function
+store_prod:
+	endbr64
+	movq	%rsi, %rax
+	movq	%rdx, %r9
+	sarq	$63, %r9
+	movq	%rsi, %r11
+	sarq	$63, %r11
+	movq	%r11, %rcx
+	imulq	%rdx, %rcx
+	movq	%r9, %rsi
+	imulq	%rax, %rsi
+	addq	%rsi, %rcx
+	mulq	%rdx
+	addq	%rcx, %rdx
+	movq	%rax, (%rdi)
+	movq	%rdx, 8(%rdi)
+	ret
+	.size	store_prod, .-store_prod
+	.globl	remdiv
+	.type	remdiv, @function
+remdiv:
+	endbr64
+	movq	%rdi, %rax
+	movq	%rdx, %r8
+	cqto
+	idivq	%rsi
+	movq	%rax, (%r8)
+	movq	%rdx, (%rcx)
+	ret
+	.size	remdiv, .-remdiv
+	.globl	uremdiv
+	.type	uremdiv, @function
+uremdiv:
+	endbr64
+	movq	%rdi, %rax
+	movq	%rdx, %r8
+	movl	$0, %edx
+	divq	%rsi
+	movq	%rax, (%r8)
+	movq	%rdx, (%rcx)
+	ret
+	.size	uremdiv, .-uremdiv
+	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+	.section	.note.GNU-stack,"",@progbits
+	.section	.note.gnu.property,"a"
+	.align 8
+	.long	1f - 0f
+	.long	4f - 1f
+	.long	5
+0:
+	.string	"GNU"
+1:
+	.align 8
+	.long	0xc0000002
+	.long	3f - 2f
+2:
+	.long	0x3
+3:
+	.align 8
+4:

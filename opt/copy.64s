@@ -1,0 +1,365 @@
+write_read:
+	endbr64
+	testq	%rdx, %rdx
+	je	.L8
+	xorl	%eax, %eax
+.L3:
+	movq	%rax, (%rsi)
+	movq	(%rdi), %rax
+	addq	$1, %rax
+	subq	$1, %rdx
+	jne	.L3
+.L8:
+	ret
+
+array_clear:
+	endbr64
+	movq	%rsi, %rdi
+	testq	%rdx, %rdx
+	jle	.L12
+	salq	$3, %rdx
+	xorl	%esi, %esi
+	jmp	memset@PLT
+.L12:
+	ret
+
+array_copy_2:
+	endbr64
+	leaq	-1(%rdx), %r8
+	xorl	%eax, %eax
+	testq	%r8, %r8
+	jle	.L14
+.L15:
+	movq	(%rdi,%rax,8), %rcx
+	movq	%rcx, (%rsi,%rax,8)
+	movq	8(%rdi,%rax,8), %rcx
+	movq	%rcx, 8(%rsi,%rax,8)
+	addq	$2, %rax
+	cmpq	%rax, %r8
+	jg	.L15
+	leaq	-2(%rdx), %rax
+	shrq	%rax
+	leaq	2(%rax,%rax), %rax
+.L14:
+	cmpq	%rdx, %rax
+	jge	.L19
+	movq	(%rdi,%rax,8), %rdx
+	movq	%rdx, (%rsi,%rax,8)
+.L19:
+	ret
+
+array_clear_2:
+	endbr64
+	leaq	-1(%rdx), %rcx
+	testq	%rcx, %rcx
+	jle	.L24
+	leaq	-2(%rdx), %rax
+	vpxor	%xmm0, %xmm0, %xmm0
+	shrq	%rax
+	vmovdqu	%xmm0, (%rsi)
+	andl	$1, %eax
+	movq	%rax, %rdi
+	movl	$2, %eax
+	cmpq	$2, %rcx
+	jle	.L32
+	testq	%rdi, %rdi
+	je	.L22
+	vmovdqu	%xmm0, 16(%rsi)
+	movl	$4, %eax
+	cmpq	$4, %rcx
+	jle	.L32
+.L22:
+	vmovdqu	%xmm0, (%rsi,%rax,8)
+	vmovdqu	%xmm0, 16(%rsi,%rax,8)
+	addq	$4, %rax
+	cmpq	%rax, %rcx
+	jg	.L22
+.L32:
+	leaq	-2(%rdx), %rax
+	shrq	%rax
+	leaq	2(%rax,%rax), %rax
+.L21:
+	cmpq	%rdx, %rax
+	jge	.L33
+	movq	$0, (%rsi,%rax,8)
+.L33:
+	ret
+
+.L24:
+	xorl	%eax, %eax
+	jmp	.L21
+array_copy_4:
+	endbr64
+	movq	%rdi, %r8
+	movq	%rsi, %r9
+	cmpq	$3, %rdx
+	jle	.L39
+	leaq	-4(%rdx), %r10
+	movq	%rsi, %rcx
+	movq	%rdi, %rax
+	shrq	$2, %r10
+	movq	%r10, %rsi
+	salq	$5, %rsi
+	leaq	32(%rdi,%rsi), %rdi
+.L36:
+	movq	(%rax), %rsi
+	addq	$32, %rax
+	addq	$32, %rcx
+	movq	%rsi, -32(%rcx)
+	movq	-24(%rax), %rsi
+	movq	%rsi, -24(%rcx)
+	movq	-16(%rax), %rsi
+	movq	%rsi, -16(%rcx)
+	movq	-8(%rax), %rsi
+	movq	%rsi, -8(%rcx)
+	cmpq	%rdi, %rax
+	jne	.L36
+	leaq	4(,%r10,4), %rax
+.L35:
+	cmpq	%rax, %rdx
+	jle	.L42
+.L38:
+	movq	(%r8,%rax,8), %rcx
+	movq	%rcx, (%r9,%rax,8)
+	addq	$1, %rax
+	cmpq	%rax, %rdx
+	jne	.L38
+.L42:
+	ret
+
+.L39:
+	xorl	%eax, %eax
+	jmp	.L35
+array_clear_3:
+	endbr64
+	leaq	-2(%rdx), %rcx
+	xorl	%eax, %eax
+	testq	%rcx, %rcx
+	jle	.L44
+	vpxor	%xmm0, %xmm0, %xmm0
+.L45:
+	movq	$0, 16(%rsi,%rax,8)
+	vmovdqu	%xmm0, (%rsi,%rax,8)
+	addq	$3, %rax
+	cmpq	%rax, %rcx
+	jg	.L45
+.L44:
+	cmpq	%rax, %rdx
+	jle	.L49
+	subq	%rax, %rdx
+	leaq	(%rsi,%rax,8), %rdi
+	xorl	%esi, %esi
+	salq	$3, %rdx
+	jmp	memset@PLT
+.L49:
+	ret
+
+array_clear_4:
+	endbr64
+	cmpq	$3, %rdx
+	jle	.L54
+	leaq	-4(%rdx), %rcx
+	xorl	%eax, %eax
+	vpxor	%xmm0, %xmm0, %xmm0
+	shrq	$2, %rcx
+	addq	$1, %rcx
+.L52:
+	movq	%rax, %rdi
+	addq	$1, %rax
+	salq	$5, %rdi
+	vmovdqu	%ymm0, (%rsi,%rdi)
+	cmpq	%rcx, %rax
+	jb	.L52
+	salq	$2, %rcx
+	vzeroupper
+.L51:
+	cmpq	%rcx, %rdx
+	jle	.L56
+	subq	%rcx, %rdx
+	leaq	(%rsi,%rcx,8), %rdi
+	xorl	%esi, %esi
+	salq	$3, %rdx
+	jmp	memset@PLT
+.L56:
+	ret
+
+.L54:
+	xorl	%ecx, %ecx
+	jmp	.L51
+test2a:
+	endbr64
+	movq	idx(%rip), %rcx
+	movq	%rdi, %rdx
+	leaq	copier(%rip), %rax
+	leaq	data(%rip), %rdi
+	movq	%rdi, %rsi
+	movq	(%rax,%rcx,8), %rax
+	jmp	*%rax
+test2b:
+	endbr64
+	movq	idx(%rip), %rcx
+	leaq	copier(%rip), %rax
+	leaq	8+data(%rip), %rsi
+	movq	%rdi, %rdx
+	leaq	-8(%rsi), %rdi
+	movq	(%rax,%rcx,8), %rax
+	jmp	*%rax
+test2c:
+	endbr64
+	movq	idx(%rip), %rcx
+	leaq	copier(%rip), %rax
+	leaq	data(%rip), %rsi
+	movq	%rdi, %rdx
+	leaq	8(%rsi), %rdi
+	movq	(%rax,%rcx,8), %rax
+	jmp	*%rax
+test2d:
+	endbr64
+	movq	idx(%rip), %rcx
+	leaq	copier(%rip), %rax
+	movq	%rdi, %rdx
+	leaq	data2(%rip), %rsi
+	leaq	data(%rip), %rdi
+	movq	(%rax,%rcx,8), %rax
+	jmp	*%rax
+mem_clear:
+	endbr64
+	movq	%rsi, %rdi
+	salq	$3, %rdx
+	xorl	%esi, %esi
+	jmp	memset@PLT
+array_copy:
+	endbr64
+	testq	%rdx, %rdx
+	jle	.L66
+	xorl	%eax, %eax
+.L64:
+	movq	(%rdi,%rax,8), %rcx
+	movq	%rcx, (%rsi,%rax,8)
+	addq	$1, %rax
+	cmpq	%rax, %rdx
+	jne	.L64
+.L66:
+	ret
+
+copy_array:
+	endbr64
+	testq	%rdx, %rdx
+	jle	.L71
+	xorl	%eax, %eax
+.L69:
+	movq	(%rdi,%rax,8), %rcx
+	movq	%rcx, (%rsi,%rax,8)
+	addq	$1, %rax
+	cmpq	%rax, %rdx
+	jne	.L69
+.L71:
+	ret
+
+clear_array:
+	endbr64
+	testq	%rsi, %rsi
+	jle	.L74
+	leaq	0(,%rsi,8), %rdx
+	xorl	%esi, %esi
+	jmp	memset@PLT
+.L74:
+	ret
+
+clear_array_4:
+	endbr64
+	cmpq	$3, %rsi
+	jle	.L79
+	leaq	-4(%rsi), %rcx
+	xorl	%eax, %eax
+	vpxor	%xmm0, %xmm0, %xmm0
+	shrq	$2, %rcx
+	addq	$1, %rcx
+.L77:
+	movq	%rax, %r8
+	addq	$1, %rax
+	salq	$5, %r8
+	vmovdqu	%ymm0, (%rdi,%r8)
+	cmpq	%rcx, %rax
+	jb	.L77
+	salq	$2, %rcx
+	vzeroupper
+.L76:
+	cmpq	%rcx, %rsi
+	jle	.L81
+	subq	%rcx, %rsi
+	leaq	(%rdi,%rcx,8), %rdi
+	leaq	0(,%rsi,8), %rdx
+	xorl	%esi, %esi
+	jmp	memset@PLT
+.L81:
+	ret
+
+.L79:
+	xorl	%ecx, %ecx
+	jmp	.L76
+main:
+	endbr64
+	pushq	%r15
+	movl	$1024, %esi
+	leaq	test2a(%rip), %rdi
+	leaq	.LC0(%rip), %r15
+	pushq	%r14
+	pushq	%r13
+	leaq	32+case_descr(%rip), %r13
+	pushq	%r12
+	pushq	%rbp
+	xorl	%ebp, %ebp
+	pushq	%rbx
+	subq	$8, %rsp
+	movq	$0, idx(%rip)
+	call	find_cpe@PLT
+.L83:
+	leaq	test_descr(%rip), %rax
+	leaq	case_descr(%rip), %r14
+	movq	(%rax,%rbp,8), %r12
+	leaq	case_fun(%rip), %rbx
+.L84:
+	movq	(%r14), %rcx
+	movq	%r12, %rdx
+	movq	%r15, %rsi
+	movl	$2, %edi
+	xorl	%eax, %eax
+	addq	$8, %r14
+	addq	$8, %rbx
+	call	__printf_chk@PLT
+	movq	-8(%rbx), %rdi
+	movl	$1024, %esi
+	movq	%rbp, idx(%rip)
+	call	find_cpe@PLT
+	movl	$2, %edi
+	movl	$1, %eax
+	leaq	.LC1(%rip), %rsi
+	call	__printf_chk@PLT
+	cmpq	%r13, %r14
+	jne	.L84
+	addq	$1, %rbp
+	cmpq	$9, %rbp
+	jne	.L83
+	addq	$8, %rsp
+	xorl	%eax, %eax
+	popq	%rbx
+	popq	%rbp
+	popq	%r12
+	popq	%r13
+	popq	%r14
+	popq	%r15
+	ret
+
+case_descr:
+case_fun:
+idx:
+test_descr:
+copier:
+data2:
+data:
+0:
+1:
+2:
+3:
+4:
