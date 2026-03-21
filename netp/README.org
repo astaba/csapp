@@ -1,0 +1,504 @@
+#+TITLE: Network Programming
+#+AUTHOR: Astar Bahouidi
+#+DESCRIPTION: CSAPP Chapter 11
+#+STARTUP: showeverything
+
+* Table of Contents :toc_3:
+- [[#3-the-global-ip-internet][3. The Global IP Internet]]
+  - [[#31-ip-addresses][3.1 IP Addresses]]
+    - [[#problem-112][Problem 11.2]]
+    - [[#problem-113][Problem 11.3]]
+  - [[#32-internet-domain-names][3.2 Internet Domain Names]]
+  - [[#33-internet-connections][3.3 Internet Connections]]
+- [[#4-the-sockets-interface][4. The Sockets Interface]]
+  - [[#47-host-and-service-conversion][4.7 Host and Service Conversion]]
+    - [[#practice-problem-114][Practice Problem 11.4]]
+  - [[#48-helper-functions-for-the-sockets-interface][4.8 Helper Functions for the Sockets Interface]]
+    - [[#my-yopen_clientfd-function][My =yopen_clientfd= Function]]
+    - [[#my-yopen_listenfd-function][My =yopen_listenfd= Function]]
+    - [[#walking-getaddrinfo-list-while-arg1-is-null][Walking =getaddrinfo= list while arg1 is =NULL=]]
+  - [[#rio-library-for-robust-io][RIO Library for Robust I/O]]
+    - [[#bartender-analogy][Bartender Analogy]]
+    - [[#rio-library-walk-through][RIO Library walk-through]]
+  - [[#van-winkles-honpwc-vs-csapprio][Van Winkle’s HONPWC vs CSAPP(RIO)]]
+  - [[#49-example-echo-client-and-the-iterative-server][4.9 Example Echo Client and the Iterative Server]]
+    - [[#purpose-in-echo-client-figure-1120][Purpose in Echo Client (Figure 11.20)]]
+    - [[#purpose-of-echo-server-and-its-echo-io-loop][Purpose of Echo Server and its Echo IO-Loop]]
+- [[#5-web-servers][5. Web Servers]]
+  - [[#54-serving-dynamic-content][5.4 Serving Dynamic Content]]
+    - [[#practice-problem-115-solution-page-1005][Practice Problem 11.5 (solution page 1005)]]
+
+* 3. The Global IP Internet
+** 3.1 IP Addresses
+It would make more sens to define a scalar type for IP address, but as
+an irreversible artifact of pass implementation a =struct= is
+needed. Any binary value retreived from input is in the host little
+endian byte order and must pass through =htonl()= before storing in
+the =struct=. Conversely, any IP addresse in binary form stored in the
+=struct= (in network big endian byte order) must pass through
+=ntohl()= before display to output. However after converting to
+network byte order and storing in the =struct=, the IP address can be
+directely send to =inet_pton()= and =inet_ntop()= for conversion
+between ‘IP Address hexadecimal’ and ‘dotted-decimal notation’.
+
+*** Problem 11.2
+Write a program "hex2dd.c" that converts its 32-bit hex argument to a
+32-bit network byte order and print the result in dotted-decimal
+notation. For example:
+
+#+begin_src sh
+linux> ./hex2dd 0x6BD4601D
+107.212.96.29
+#+end_src
+
+[[file:hex2dd.c][hex2dd.c]].
+
+*** Problem 11.3
+Write a program that takes a dotted-decimal notation string and
+convert it to hexadecimal IP Address. For example:
+
+#+begin_src sh
+linux> ./dd2hex 128.2.194.242
+0x8002c2f2
+#+end_src
+
+[[file:dd2hex.c::int main(int argc, char *argv\[argc + 1\]) {][dd2hex.c]].
+
+** 3.2 Internet Domain Names
+Using the shell utility =nslookup <domain name>=, you can make a DNS
+lookup which means to query the domain name server whith a human
+readable domain name to have the corresponding IP Address (in
+dotted-decimal notation).
+
+** 3.3 Internet Connections
+Internet clients and servers communicate by sending and receiving
+streams of data over a *connection*.
+- A connection is /point-to-point/ in the sens that it connects a pair
+  of processes.
+- A connection is /full-duplex/ in the sens that data flows in both
+  direction at the same time.
+- A connection is /reliable/ - provided no rabid beast chew in any
+  cable - in the sens that the stream of bytes from the source process
+  is eventually received by the destination process in the order it
+  was sent.
+
+A *socket* is the end of a connection provided with a /socket address/
+made up an IP Address and a 16-bit integer port number in the form:
+~address:port~.
+- In the client’s socket address the port is assigned automatically by
+  the kernel when the connection request is issued and is called
+  /ephemeral port/.
+- However, the port in the server’s socket address is typically some
+  /well-known port/ that is permanently associated with the service.
+
+A connection is uniquely identified by the socket addresses of its two
+end points. This pair of socket addresses is known as a /socket pair/
+and is denoted by the tuple:
+
+~(cliaddr:cliport, servaddr:servport)~
+
+#+begin_example
+(128.2.194.242:51213, 208.216.181.15:80)
+#+end_example
+
+* 4. The Sockets Interface
+** 4.7 Host and Service Conversion
+*** Practice Problem 11.4
+The =getaddrinfo= and =getnameinfo= functions subsume the
+functionality of =inet_pton= and =inet_ntop=, respectively, and they
+provide a higher-level of abstraction that is independent of any
+particular address format. To convince yourself how handy this is,
+write a version of hostinfo (Figure 11.17) that uses =inet_ntop=
+instead of =getnameinfo= to convert each socket address to a
+dotted-decimal address string.
+
+[[file:yhostinfo-ntop.c][yhostinfo-ntop.c]].
+
+Your implementation is spot on. You've correctly navigated the "pointer
+soup" that usually trips up students in Chapter 11.
+
+The interplay you're asking about is essentially a *memory overlay*
+trick. Here is the assessment of that byte layout:
+
+**** 1. The Generic Wrapper (=struct sockaddr=)
+The field =addr->ai_addr= is a pointer to a =struct sockaddr=. This is a
+"one-size-fits-all" header (16 bytes) that the kernel uses to handle any
+protocol (IPv4, IPv6, Bluetooth, etc.). It only contains:
+
+- *sa_family*: 2 bytes (tells the kernel how to interpret the rest).
+- *sa_data*: 14 bytes of raw address data.
+
+**** 2. The IPv4 Specialist (=struct sockaddr_in=)
+When =hints.ai_family = AF_INET=, the kernel actually allocates a
+=struct sockaddr_in= behind the scenes. Your cast
+=(struct sockaddr_in *)addr->ai_addr= tells the compiler: "Stop looking
+at this as 14 bytes of raw data, and start looking at it as an IPv4
+structure."
+
+- *sin_port*: 2 bytes.
+- *sin_addr*: 4 bytes (This is the *=struct in_addr=*).
+- *sin_zero*: 8 bytes (Padding to match the 16-byte total).
+
+**** 3. The =inet_ntop= Hand-off
+=inet_ntop= (Network To Printable) doesn't want the whole 16-byte
+structure; it only wants the 4-byte IP payload.
+
+- By passing =&(sockp->sin_addr)=, you are giving it a pointer to the
+  *specific offset* where those 4 bytes live within the larger
+  structure.
+- =inet_ntop= then reads those 4 bytes in *Network Byte Order*
+  (Big-Endian) and converts them into the string in your =buf=.
+
+**** Summary of the Flow
+=addr->ai_addr= (Generic) \(\xrightarrow{cast}\) =sockp= (Structured)
+\(\xrightarrow{\&}\) =sin_addr= (Raw 4-byte IP).
+
+** 4.8 Helper Functions for the Sockets Interface
+*** My =yopen_clientfd= Function
+My [[file:~/coding/c_prog/csapp/src/ycsapp.c::int yopen_clientfd(char *hostname, char *port) {][yopen_clientfd]] is inspired by [[file:~/coding/c_prog/csapp/src/csapp.c::int open_clientfd(char *hostname, char *port) {][open_clientfd]].
+
+This is a solid, robust implementation that captures the essence of
+the "protocol-independent" philosophy introduced in CSAPP. By
+iterating through the =addrinfo= list and handling both =socket()= and
+=connect()= failures, it creates a version that is more resilient than
+a simple one-shot connection attempt.
+
+**** Technical Assessment:
+1. *AI_ADDRCONFIG*: This ensures the system only returns IPv4
+   addresses if the local system has at least one IPv4 address
+   configured (and same for IPv6), preventing useless connection
+   attempts.
+2. *Debugging Output*: Using =getnameinfo= with =NI_NUMERICHOST=
+   inside the loop is a very professional touch---it lets the user
+   know exactly which IP they finally landed on, which is invaluable
+   for debugging multi-homed hosts.
+3. *Cleanup*: by correctly calling =freeaddrinfo= before returning, it
+   avoids the memory leaks that often plague early networking
+   assignments.
+
+*** My =yopen_listenfd= Function
+My [[file:~/coding/c_prog/csapp/src/ycsapp.c::int yopen_listenfd(char *port) {][yopen_listenfd]] is inspired by [[file:~/coding/c_prog/csapp/src/csapp.c::int open_listenfd(char *port) {][open_listenfd]].
+
+This implementation of =yopen_listenfd= is a robust, production-ready
+pattern. By combining =AI_PASSIVE= with the =SO_REUSEADDR= socket
+option, it ensured that the server is both protocol-agnostic and
+resilient to quick restarts.
+
+**** Technical Assessment:
+1. *SO_REUSEADDR Placement*: This is vital. Without it, if you kill
+   your server and restart it immediately, =bind()= will fail with
+   "Address already in use" because the kernel keeps the port in a
+   =TIME_WAIT= state. =setsockopt= is correctly placed between
+   =socket()= and =bind()=. This is essential because the option must
+   be set /before/ the socket is bound to a port for the kernel to
+   honor the "reuse" request during the =TIME_WAIT= state.
+2. *Error Reporting*: Your use of =strerror(errno)= in the loop is
+   excellent for identifying exactly /why/ a specific address in the
+   list failed (e.g., permission denied for ports < 1024).
+
+*** Walking =getaddrinfo= list while arg1 is =NULL=
+It feels counter-intuitive to "walk a list" when you haven't even
+specified a host, but this is actually a masterclass in *Protocol
+Independence* (IPv4 vs. IPv6).
+
+When you pass =NULL= to the hostname and include the =AI_PASSIVE= flag,
+you are telling the kernel: /"I want to listen on all available
+interfaces."/ The reason you still get a list (and must walk it) comes
+down to three main reasons:
+
+**** 1. The Dual-Stack Reality (IPv4 vs. IPv6)
+Even without a hostname, =getaddrinfo= will likely return *two* entries
+if your system supports both protocols:
+
+- An entry for =0.0.0.0= (IPv4 =INADDR_ANY=).
+- An entry for =::= (IPv6 =in6addr_any=).
+
+The "Walk" is there because the kernel might successfully create a
+socket for one but fail for the other. For example, if your Linux kernel
+has IPv6 disabled at the boot level, =socket(AF_INET6, ...)= will fail.
+The loop allows the code to gracefully skip the failed IPv6 attempt and
+move on to the IPv4 attempt.
+
+**** 2. The =bind()= Race
+Even if =socket()= succeeds, =bind()= might fail. Perhaps another
+process is already listening on that port on the IPv6 interface but not
+the IPv4 one. Walking the list ensures that if /any/ valid configuration
+can work, your server will start.
+
+**** 3. Wildcard Addresses
+In the "Old Days" (before =getaddrinfo=), programmers had to hardcode
+specific structures for =INADDR_ANY=. By using =NULL= + =AI_PASSIVE=,
+=getaddrinfo= generates the correct "wildcard" address for you
+automatically, regardless of whether the system uses 4-byte or 16-byte
+addresses.
+
+** RIO Library for Robust I/O
+The *RIO (Robust I/O)* package is introduced in /Computer Systems: A
+Programmer's Perspective/ (CS:APP) to make network programming more
+reliable. The standard =read()= and =write()= syscalls are low-level
+and can return fewer bytes than requested, especially with
+sockets. RIO functions are wrappers that guarantee you either get
+exactly the number of bytes you asked for (unless EOF or error) or
+they retry until that happens. They're not "formatted I/O" like
+=printf=/=scanf=, but rather *robust, buffered/unbuffered wrappers
+around system calls*.
+
+*** Bartender Analogy
+- Explanation: [[file:~/coding/c_prog/csapp/src/csapp.c::THE BARTENDER ANALOGY (Conceptual Overview):][The Keg and the Mug]].
+- Picture: [[../images/rio_lib.png][Picture]].
+
+The diagram shows the *"keg and mug" analogy* side by side for
+unbuffered vs. buffered RIO. On the left, =rio_readn= pours directly
+from the file descriptor into the user buffer (mug). On the right,
+=rio_read=/=rio_readnb= first refill the internal buffer (keg) from
+the file descriptor, then pour into the user buffer.
+
+**** 🧩 How to read this diagram
+- *Unbuffered (=rio_readn=)*:
+  - Every request goes straight to the file descriptor.
+  - If you ask for =n= bytes, it loops until your mug (usrbuf) is filled
+    or EOF.
+  - Efficient for bulk transfers, but every call hits the kernel.
+- *Buffered (=rio_read=, =rio_readnb=, =rio_readlineb=)*:
+  - The keg (=rio_buf=) is filled in large chunks from the file
+    descriptor.
+  - The bartender (=rio_read=) then pours into your mug (=usrbuf=) up to
+    its capacity =n=.
+  - Reduces syscalls, supports line-oriented input, and makes small
+    reads efficient.
+
+This visual should help cement the idea:
+- *=usrbuf= (the mug)*: always the client's buffer, with capacity =n=.
+- *=rio_buf= (the keg)*: internal buffer maintained by RIO for
+efficiency.
+- *Bartender (=rio_read=)*: refills the keg when empty, then serves mugs
+from it.
+
+Would you like me to now build a *comparative walkthrough of =rio_readn=
+vs. =rio_readnb=*, showing how the keg changes the flow of data?
+
+*** RIO Library walk-through
+**** Walk-through of =rio_readn()=
+Ref: [[file:~/coding/c_prog/csapp/src/csapp.c::ssize_t rio_readn(int fd, void *usrbuf, size_t n)][rio_readn]].
+
+***** Key points:
+1. *Initialization*
+   - =nleft= tracks how many bytes remain to be read.
+   - =bufp= points to where the next chunk should go.
+2. *Loop until done*
+   - Calls =read(fd, bufp, nleft)=.
+   - If interrupted (=EINTR=), it retries without failing.
+   - If EOF (=nread == 0=), it stops.
+   - Otherwise, it subtracts the number of bytes read and moves the
+     buffer pointer forward.
+3. *Return value*
+   - Returns the number of bytes actually read.
+   - This is either =n= (success) or less if EOF occurred before reading
+     all requested bytes.
+
+***** Analogy
+Think of =rio_readn()= as a *stubborn reader*: - You ask it: "Give me
+exactly 100 bytes."
+- It keeps calling =read()= until it has either collected all 100 bytes
+or the source runs dry.
+- It shields you from the quirks of =read()= returning partial data.
+
+**** Walk-through of =rio_readlineb=
+Let's walk through [[file:~/coding/c_prog/csapp/src/csapp.c::ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)][rio_readlineb]], the buffered RIO function designed
+for reading a single line of text robustly. It's especially useful for
+protocols or input formats where data is line-oriented (e.g., HTTP
+headers, command-line input, etc.).
+
+This function builds on =rio_read=, using it to fetch *one byte at a
+time* until it sees a newline (='\n'=) or hits the buffer limit.
+
+***** 🧪 What Each Line Does
+- *Initialization*:
+  - =bufp = usrbuf=: start filling the user's mug.
+  - =maxlen=: the mug's capacity (including room for null terminator).
+- *Loop*:
+  - =n = 1=: This isn’t just a count; it is a *spot check* for a
+    buffer capacity large enough to hold at least the null-terminator.
+  - =rio_read(rp, &c, 1)=: read one byte from the keg.
+    - If successful, copy it into the mug.
+    - If it's a newline, break early (line complete).
+    - If EOF and no data read, return 0.
+    - If EOF and some data read, return what we got.
+    - If error, return -1.
+- *Termination*:
+  - Null-terminate the string.
+  - Return number of bytes read (excluding ='\0=) while balancing the
+    initial =n = 1= offset.
+
+***** 🍺 Analogy
+1. You're asking the bartender for *a sip at a time* until you get a
+   newline.
+2. He pours from the keg (=rio_buf=) into your mug (=usrbuf=) one byte at
+   a time.
+3. If the keg runs dry, he refills it from the file descriptor.
+4. Once he hits a newline or fills your mug, he stops.
+
+***** 🧩 Why Not Use =read()= Directly?
+- =read()= might return partial lines.
+- It doesn't stop at newlines unless you manually scan.
+- =rio_readlineb= guarantees:
+  - No buffer overflow.
+  - Line ends at ='\n'= or EOF.
+  - Efficient reuse of internal buffer.
+
+** Van Winkle’s HONPWC vs CSAPP(RIO) :noexport@1:
+*Lewis Van Winkkle’s "Hands-On Network Programming with C" (HONPWC)
+blocking =send()=/=recv()= approach is simpler and efficient for bulk
+transfers, but CSAPP's RIO library adds robustness and efficiency when
+dealing with partial reads/writes, small messages, or line-oriented
+protocols. The trade-off is between simplicity (Winkle) and
+resilience/efficiency in varied conditions (RIO).*
+
+From HONPWC Chapter3: [[file:~/coding/c_prog/networking/ch03-in-depth-tcp-connections/tcp_server_chat.c::for (i = 1; i <= max_socket; i++) {][tcp_server_chat.c]], [[file:~/coding/c_prog/networking/ch03-in-depth-tcp-connections/tcp_server_toupper_fork.c::while (1) {][tcp_server_toupper_fork.c]].
+
+*** 🔑 Key Differences
+
+| Aspect                       | HONPWC (blocking =send=/=recv=)                                                                   | CSAPP RIO (robust I/O)                                                                                       |
+| <20>                         | <20>                                                                                              | <20>                                                                                                         |
+|------------------------------+---------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------|
+| *System calls*               | Each call directly hits the kernel. If =recv()= returns fewer bytes, you must handle it manually. | Wraps =read()=/=write()= in loops to guarantee full transfer. Buffered version reduces syscalls by batching. |
+| *Simplicity*                 | Very straightforward: one =send()= or =recv()= per message. Easy to learn and implement.          | More complex API (=rio_readn=, =rio_writen=, =rio_readlineb=) but hides tricky edge cases.                   |
+| *Partial transfers*          | Must manually check return values and loop until all data is sent/received.                       | Automatically retries until the requested amount is transferred (unless EOF/error).                          |
+| *Interrupts (=EINTR=)*       | Programmer must handle signals interrupting syscalls.                                             | RIO handles =EINTR= internally, retrying seamlessly.                                                         |
+| *Efficiency for small reads* | Inefficient if you read one byte at a time --- each =recv()= is a syscall.                        | Buffered RIO (=rio_read=) fills an internal buffer (keg) once, then serves many small reads from memory.     |
+| *Line-oriented input*        | Requires manual parsing of newlines.                                                              | =rio_readlineb= delivers complete lines safely and efficiently.                                              |
+| *Use case fit*               | Best for simple bulk transfers (e.g., file copy, large payloads).                                 | Best for interactive protocols (HTTP, SMTP, echo client) where messages are small and structured.            |
+
+*** ⚡ Efficiency Considerations
+- *Bulk transfers (large blocks of data)*:\\
+  Blocking =send()=/=recv()= is efficient because the kernel can handle
+  large chunks in one go. RIO's unbuffered wrappers (=rio_readn=,
+  =rio_writen=) behave similarly, just with added robustness.
+- *Small or line-oriented transfers*:\\
+  RIO shines here. Without buffering, repeated =recv()= calls for
+  small chunks cause many syscalls → slower. RIO's buffered keg
+  reduces syscalls, improving performance.
+- *Robustness vs. speed*:\\
+  HONPWC approach is faster to write and often "fast enough." RIO
+  adds a small overhead but prevents subtle bugs (partial reads,
+  signal interruptions, buffer overruns).
+
+*** 🚨 Risks and Trade-offs
+- *HONPWC blocking calls*:
+  - Risk of incomplete transfers if programmer forgets to loop.
+  - Harder to handle line-oriented protocols.
+  - More syscalls if reading small chunks.
+- *RIO*:
+  - Slightly more complex API.
+  - Small overhead in abstraction.
+  - But safer and more efficient in real-world network code.
+
+*** ✅ Practical Guidance
+- If you're writing *simple, bulk-transfer clients/servers* (e.g., file
+  transfer, streaming), HONPWC blocking =send()=/=recv()= is fine.
+- If you're writing *protocols with small messages or line-based input*
+  (echo client, HTTP, chat), RIO is superior --- fewer bugs, fewer
+  syscalls, more efficiency.
+- Many production libraries (e.g., OpenSSL BIO, libevent) adopt RIO-like
+  buffering internally for exactly these reasons.
+
+👉 In short: *HONPWC method is simple and effective for bulk data, but
+CSAPP's RIO library is more robust and efficient for interactive,
+line-oriented, or small-message protocols.*
+
+** 4.9 Example Echo Client and the Iterative Server
+*** Purpose in Echo Client (Figure 11.20)
+Ref: [[file:echoclient.c]]\\
+In the echo client, you want to: - Send a request string to the
+server. - Read back the echoed response reliably.
+
+Using plain =read()=/=write()= is error-prone because: - =read()= may
+return fewer bytes than requested. - =write()= may not write all bytes
+in one call. - Signals can interrupt syscalls (=EINTR=).
+
+The RIO functions solve this by looping until the full transfer is
+complete. That's why they're relevant: they make the echo client robust
+against partial reads/writes and interruptions.
+
+*** Purpose of Echo Server and its Echo IO-Loop
+Ref: [[file:echoserveri.c]], [[file:echo.c]]\\
+*Questions:*
+- Why explicit close of =connfd= but not =listenfd=?
+- This server is unable to accept another connection while one is in
+  progress, right?
+
+**** 1. Why explicitly close =connfd= but not =listenfd=?
+- *=connfd= (connection socket)*:
+  - Each call to =Accept()= creates a new connected socket for a
+    specific client.
+  - After =echo(connfd)= finishes, the server is done with that client.
+    If you don't close it, you'll leak file descriptors over time.
+  - Explicitly closing =connfd= ensures resources are freed immediately
+    and the server can keep accepting new clients indefinitely.
+- *=listenfd= (listening socket)*:
+  - This socket stays open for the entire lifetime of the server.
+  - It's only needed once, at startup, and remains open so the server
+    can keep accepting new connections.
+  - Closing it inside the loop would stop the server from accepting new
+    clients.
+  - When the process eventually terminates (=exit(0)=), the OS will
+    close =listenfd= automatically.
+
+So: *close =connfd= after each client, keep =listenfd= open until the
+server exits.*
+
+**** 2. The reason the Echo Server is an Iterative Server.
+Can the server accept another connection while one is in progress?
+- In this *iterative server*, the answer is *no*.
+  - The server handles one client at a time: it calls =Accept()=
+    (=accept()= blocks the server until some client complete the *TCP
+    three-way handshake*: [[info:libc#Accepting Connections][libc#Accepting Connections]]), runs
+    =echo(connfd)= until that client disconnects, then closes =connfd=
+    and goes back to =Accept()=.
+  - While =echo()= is running, the server is blocked and cannot accept
+    new clients.
+  - Other clients trying to connect will wait in the kernel's listen
+    backlog queue until the server returns to =Accept()=.
+- To handle multiple clients concurrently, you need a *concurrent
+  server* design:
+  - *Forking server*: after =Accept()=, fork a child process to run
+    =echo(connfd)= while the parent goes back to =Accept()=.
+  - *Threaded server*: spawn a thread per client.
+  - *Event-driven server*: use =select()=, =poll()=, or =epoll()= to
+    multiplex many connections in one process.
+
+CS:APP introduces the iterative server first (Figure 11.21) for
+simplicity, then later shows concurrent versions.
+
+**** ✅ Summary
+- =connfd= is closed explicitly because each client connection is
+  temporary.
+- =listenfd= stays open for the life of the server, so it's not closed
+  inside the loop.
+- The iterative echo server is *single-client-at-a-time*; it won't
+  accept another connection until the current one finishes. That's why
+  later chapters introduce concurrent servers.
+
+* 5. Web Servers
+** 5.4 Serving Dynamic Content
+[[file:./tiny/cgi-bin/adder.c]].
+
+*** Practice Problem 11.5 (solution page 1005)
+Assume that a CGI program needs to send dynamic content to the
+client. This is typically done by making the CGI program send its
+content to the standard output.  Explain how this content is sent to
+the client.
+
+**** Answer
+After the server identifies a *Common-Gateway-Interface* (CGI)
+request, it sets up the necessary environment variables (like
+=QUERY_STRING=). The server then calls =fork()= to create a child
+process. Inside the child:
+1. It calls dup2(connfd, STDOUT_FILENO) to redirect the child's
+   standard output to the client's connection socket returned by
+   =accept()=.
+2. It calls =execve()= to load and run the CGI program.
+3. Because the CGI program typically writes to standard output, and
+   standard output is now redirected to the socket, the dynamic
+   content is sent directly to the client via the kernel's network
+   stack.

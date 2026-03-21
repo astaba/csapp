@@ -178,6 +178,12 @@ ssize_t rio_writen(int fd, void *usrbuf, size_t n);
 void rio_readinitb(rio_t *rp, int fd); 
 ssize_t	rio_readnb(rio_t *rp, void *usrbuf, size_t n);
 ssize_t	rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen);
+/* My (Yourust I/O) package */
+ssize_t yio_readn(int fd, void *usrbuf, size_t n);
+ssize_t yio_writen(int fd, void *usrbuf, size_t n);
+void yio_readinitb(rio_t *rp, int fd);
+ssize_t yio_readnb(rio_t *rp, void *usrbuf, size_t n);
+ssize_t yio_readlb(rio_t *rp, void *usrbuf, size_t len);
 
 /* Wrappers for Rio package */
 ssize_t Rio_readn(int fd, void *usrbuf, size_t n);
@@ -185,15 +191,28 @@ void Rio_writen(int fd, void *usrbuf, size_t n);
 void Rio_readinitb(rio_t *rp, int fd); 
 ssize_t Rio_readnb(rio_t *rp, void *usrbuf, size_t n);
 ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen);
+/* My Wrappers for Yio package */
+ssize_t Yio_readn(int fd, void *ptr, size_t nbytes);
+void Yio_writen(int fd, void *usrbuf, size_t n);
+void Yio_readinitb(rio_t *rp, int fd);
+ssize_t Yio_readnb(rio_t *rp, void *usrbuf, size_t n);
+ssize_t Yio_readlb(rio_t *rp, void *usrbuf, size_t len);
 
 /* Reentrant protocol-independent client/server helpers */
 int open_clientfd(char *hostname, char *port);
 int open_listenfd(char *port);
+/* My practice for Reentrant protocol-independent client/server
+   helpers */
+int yopen_clientfd(char *hostname, char *port);
+int yopen_listenfd(char *port);
+
 
 /* Wrappers for reentrant protocol-independent client/server helpers */
 int Open_clientfd(char *hostname, char *port);
 int Open_listenfd(char *port);
-
+/* My practice */
+int Yopen_clientfd(char *hostname, char *port);
+int Yopen_listenfd(char *port);
 
 #endif /* __CSAPP_H__ */
 /* $end csapp.h */
