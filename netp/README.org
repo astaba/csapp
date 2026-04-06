@@ -51,7 +51,7 @@ linux> ./hex2dd 0x6BD4601D
 #+end_src
 
 **** Answer
-Reference: [[file:~/coding/c_prog/csapp/netp/hex2dd.c][Problem 11.2 hex2dd]].
+Reference: [[file:hex2dd.c][Problem 11.2 hex2dd]].
 
 *** Practice Problem 11.3
 Write a program that takes a dotted-decimal notation string and
@@ -63,7 +63,7 @@ linux> ./dd2hex 128.2.194.242
 #+end_src
 
 **** Answer
-Reference: [[file:~/coding/c_prog/csapp/netp/dd2hex.c][Problem 11.3 dd2hex]].
+Reference: [[file:dd2hex.c][Problem 11.3 dd2hex]].
 
 ** 3.2 Internet Domain Names
 Using the shell utility =nslookup <domain name>=, you can make a DNS
@@ -109,12 +109,12 @@ The =getaddrinfo= and =getnameinfo= functions subsume the
 functionality of =inet_pton= and =inet_ntop=, respectively, and they
 provide a higher-level of abstraction that is independent of any
 particular address format. To convince yourself how handy this is,
-write a version of hostinfo ([[file:~/coding/c_prog/csapp/netp/yhostinfo.c][Figure 11.17 yhostinfo]]) that uses
+write a version of hostinfo ([[file:yhostinfo.c][Figure 11.17 yhostinfo]]) that uses
 =inet_ntop= instead of =getnameinfo= to convert each socket address to
 a dotted-decimal address string.
 
 **** Answer
-Reference: [[file:~/coding/c_prog/csapp/netp/yhostinfo-ntop.c][Problem 11.4 yhostinfo-ntop]].
+Reference: [[file:yhostinfo-ntop.c][Problem 11.4 yhostinfo-ntop]].
 
 **** Explanations
 Your implementation is spot on. You've correctly navigated the "pointer
@@ -158,7 +158,7 @@ structure; it only wants the 4-byte IP payload.
 
 ** 4.8 Helper Functions for the Sockets Interface
 *** My =yopen_clientfd= Function
-My [[file:~/coding/c_prog/csapp/src/ycsapp.c::int yopen_clientfd(char *hostname, char *port) {][yopen_clientfd]] is inspired by [[file:~/coding/c_prog/csapp/src/csapp.c::int open_clientfd(char *hostname, char *port) {][open_clientfd]].
+My [[file:../src/ycsapp.c::int yopen_clientfd(char *hostname, char *port) {][yopen_clientfd]] is inspired by [[file:../src/csapp.c::int open_clientfd(char *hostname, char *port) {][open_clientfd]].
 
 This is a solid, robust implementation that captures the essence of
 the "protocol-independent" philosophy introduced in CSAPP. By
@@ -180,7 +180,7 @@ a simple one-shot connection attempt.
    assignments.
 
 *** My =yopen_listenfd= Function
-My [[file:~/coding/c_prog/csapp/src/ycsapp.c::int yopen_listenfd(char *port) {][yopen_listenfd]] is inspired by [[file:~/coding/c_prog/csapp/src/csapp.c::int open_listenfd(char *port) {][open_listenfd]].
+My [[file:../src/ycsapp.c::int yopen_listenfd(char *port) {][yopen_listenfd]] is inspired by [[file:../src/csapp.c::int open_listenfd(char *port) {][open_listenfd]].
 
 This implementation of =yopen_listenfd= is a robust, production-ready
 pattern. By combining =AI_PASSIVE= with the =SO_REUSEADDR= socket
@@ -247,7 +247,7 @@ they retry until that happens. They're not "formatted I/O" like
 around system calls*.
 
 *** Bartender Analogy
-- Explanation: [[file:~/coding/c_prog/csapp/src/csapp.c::THE BARTENDER ANALOGY (Conceptual Overview):][The Keg and the Mug]].
+- Explanation: [[file:../src/csapp.c::THE BARTENDER ANALOGY (Conceptual Overview):][The Keg and the Mug]].
 - Picture: [[../images/rio_lib.png][Picture]].
 
 The diagram shows the *"keg and mug" analogy* side by side for
@@ -282,7 +282,7 @@ vs. =rio_readnb=*, showing how the keg changes the flow of data?
 
 *** RIO Library walk-through
 **** Walk-through of =rio_readn()=
-Ref: [[file:~/coding/c_prog/csapp/src/csapp.c::ssize_t rio_readn(int fd, void *usrbuf, size_t n)][rio_readn]].
+Ref: [[file:../src/csapp.c::ssize_t rio_readn(int fd, void *usrbuf, size_t n)][rio_readn]].
 
 ***** Key points:
 1. *Initialization*
@@ -307,7 +307,7 @@ or the source runs dry.
 - It shields you from the quirks of =read()= returning partial data.
 
 **** Walk-through of =rio_readlineb=
-Let's walk through [[file:~/coding/c_prog/csapp/src/csapp.c::ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)][rio_readlineb]], the buffered RIO function designed
+Let's walk through [[file:../src/csapp.c::ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)][rio_readlineb]], the buffered RIO function designed
 for reading a single line of text robustly. It's especially useful for
 protocols or input formats where data is line-oriented (e.g., HTTP
 headers, command-line input, etc.).
@@ -415,7 +415,7 @@ line-oriented, or small-message protocols.*
 :CUSTOM_ID: purpose-of-echo-client
 :END:
 
-- Reference: [[file:~/coding/c_prog/csapp/netp/echoclient.c][Figure 11.20 echoclient]].
+- Reference: [[file:echoclient.c][Figure 11.20 echoclient]].
 
 In the echo client, you want to: - Send a request string to the
 server. - Read back the echoed response reliably.
@@ -433,7 +433,7 @@ against partial reads/writes and interruptions.
 :CUSTOM_ID: purpose-of-echo-server
 :END:
 
-References: [[file:~/coding/c_prog/csapp/netp/echoserveri.c][Figure 11.21 echoserveri]], [[file:~/coding/c_prog/csapp/netp/echo.c][Figure 11.22 echo]].
+References: [[file:echoserveri.c][Figure 11.21 echoserveri]], [[file:echo.c][Figure 11.22 echo]].
 
 *Questions:*
 - Why explicit close of =connfd= but not =listenfd=?
@@ -520,7 +520,7 @@ process. Inside the child:
    stack.
 
 * 6. Putting it Together: Youtiny Server
-[[file:~/coding/c_prog/csapp/netp/youta/ytiny.c]].
+[[file:youta/ytiny.c]].
 
 ** A tiny massive mistake
 While coding the Youtiny server a massive mistake slipped in.  In the
@@ -673,7 +673,7 @@ and this:
 =curl -v http://localhost:8080/favicon.ico=
 
 *** Answer 2 and 3
-[[file:~/coding/c_prog/csapp/netp/localhost.pdf][localhost.pdf]].
+[[file:localhost.pdf][localhost.pdf]].
 
 *** Anwser 4
 [[https://www.rfc-editor.org/rfc/rfc2616.html#section-14]].
@@ -686,7 +686,7 @@ instead of explicitly waiting for them to terminate.
 Reference: [[file:tiny/tiny08.c::static void sigchld_handler(int sig) {][Problem 11.8 tiny08]].
 
 *** Explanations
-Reference: [[file:~/coding/c_prog/csapp/ecf/README.org::#sigchld-for-production-grade-server][SIGCHLD for production grade server]].
+Reference: [[file:../ecf/README.org::#sigchld-for-production-grade-server][SIGCHLD for production grade server]].
 
 ** Problem 11.9
 :PROPERTIES:
