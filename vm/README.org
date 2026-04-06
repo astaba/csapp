@@ -129,7 +129,7 @@ absent or marked not-present. The important distinction:
 :PROPERTIES:
 :CUSTOM_ID: detailed-behavior
 :END:
-*Anonymous =mmap()=* (=MAP_ANONYMOUS=):
+**** *Anonymous =mmap()=* (=MAP_ANONYMOUS=):
 
 - Kernel creates a VMA with no physical frames.
 - On first access to a page in that VMA → page fault → kernel allocates
@@ -138,7 +138,7 @@ absent or marked not-present. The important distinction:
   process memory).
 - After the page is present, CPU accesses use caches → DRAM.
 
-*=malloc()= via =brk()=*:
+**** *=malloc()= via =brk()=*:
 
 - =malloc()= may call =brk()=/=sbrk()= to enlarge the heap: this
   increases the VMA or moves program break, but *no physical pages* are
@@ -150,7 +150,7 @@ absent or marked not-present. The important distinction:
   but if =malloc()= reuses previously freed memory, the contents may be
   left over unless the allocator zeroes it (which =calloc()= does).
 
-*File-backed =mmap()=*:
+**** *File-backed =mmap()=*:
 
 - Kernel creates a VMA that is backed by the file through the /page
   cache/.
@@ -328,15 +328,16 @@ Sequence on anonymous mapping access:
 :PROPERTIES:
 :CUSTOM_ID: comparison-table-concise
 :END:
-| Aspect                               | =malloc()=/heap                                                                      | =mmap()= (anonymous)                                                           | =mmap()= (file-backed)                                            |
+| Aspect                               | ~malloc()/heap~                                                                      | ~mmap()~ (anonymous)                                                           | ~mmap()~ (file-backed)                                            |
+| <10>                                 | <20>                                                                                 | <20>                                                                           | <20>                                                              |
 |--------------------------------------+--------------------------------------------------------------------------------------+--------------------------------------------------------------------------------+-------------------------------------------------------------------|
-| Syscalls used                        | =brk()=/=sbrk()= and sometimes =mmap()=                                              | =mmap()=                                                                       | =mmap()=                                                          |
+| Syscalls used                        | ~brk()~/~sbrk()~ and sometimes ~mmap()~                                              | ~mmap()~                                                                       | ~mmap()~                                                          |
 | Virtual mapping created immediately  | yes                                                                                  | yes                                                                            | yes                                                               |
 | Physical pages allocated immediately | no (on access)                                                                       | no (on access) --- demand-zero                                                 | no (on access) --- read from file                                 |
 | Initial page contents                | undefined (allocator may reuse old memory) unless kernel allocated fresh page → zero | zero (kernel demand-zero)                                                      | file contents (kernel reads into page cache)                      |
-| Zeroing guarantee                    | =malloc()= does not zero; =calloc()= zeros; kernel zeroes new pages                  | kernel zeroes on first fault                                                   | kernel loads from file                                            |
-| Visibility of writes                 | within process (or across threads)                                                   | =MAP_SHARED= writes visible to other processes & to file; =MAP_PRIVATE= is COW | file-backed page cache; writes mark dirty                         |
-| Release back to kernel               | =free()= may not; =munmap()=/=brk()= required                                        | =munmap()= frees                                                               | =munmap()= frees                                                  |
+| Zeroing guarantee                    | ~malloc()~ does not zero; ~calloc()~ zeros; kernel zeroes new pages                  | kernel zeroes on first fault                                                   | kernel loads from file                                            |
+| Visibility of writes                 | within process (or across threads)                                                   | ~MAP_SHARED~ writes visible to other processes & to file; ~MAP_PRIVATE~ is COW | file-backed page cache; writes mark dirty                         |
+| Release back to kernel               | ~free()~ may not; ~munmap()~/~brk()~ required                                        | ~munmap()~ frees                                                               | ~munmap()~ frees                                                  |
 | Swap/page cache behavior             | anonymous pages may be swapped                                                       | anon pages swapped                                                             | file-backed pages can be dropped and reloaded from file (no swap) |
 | Use when                             | general heap allocations, many small allocations                                     | large contiguous allocation, control over page faulting, shared memory         | map big files into memory, memory-mapped IO                       |
 
@@ -372,10 +373,9 @@ strace -e brk,mmap ./a.out
 - Test first-touch cost:
 
 #+begin_src C
-char *p = mmap(NULL, 1ULL<<30, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE,
--1, 0);
-for (size_t i = 0; i < (1ULL<<30); i += 4096) p[i] = 0;  // touches, forces
-page faults
+  char *p = mmap(NULL, 1ULL<<30, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+  // touches, forces page faults
+  for (size_t i = 0; i < (1ULL<<30); i += 4096) p[i] = 0;
 #+end_src
 
 - Observe page residency with =mincore()= or =/proc/<pid>/smaps=.

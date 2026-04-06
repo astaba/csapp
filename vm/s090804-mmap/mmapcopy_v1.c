@@ -1,11 +1,12 @@
-/* csapp/ch09-virtual-memory/090804-mmap/mmapcopy_v1.c */
-/* Created on: Mon Nov 17 18:26:27 +01 2025 */
-
-/* Practice problem 9.5: Write a C program mmapcopy.c that uses mmap to copy an
- * arbitrary-size disk file to stdout. The name of the input file should be
- * passed as a command-line argument.
- */
-
+/* =========================================================================
+ * Created on: <Mon Nov 17 18:26:27 +01 2025>
+ * Time-stamp: <Sat Mar 21 18:05:47 +00 2026 by owner>
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/vm/s090804-mmap/mmapcopy_v1.c -
+ * Practice problem 9.5: Write a C program mmapcopy.c that uses mmap
+ * to copy an arbitrary-size disk file to stdout. The name of the
+ * input file should be passed as a command-line argument.
+ * ========================================================================= */
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -33,16 +34,17 @@ static void excp_cuserr(char *fmt, ...);
 static int mmapcopy(int fd, off_t length);
 
 int main(int argc, char *argv[argc + 1]) {
+  const char *filename;
+  int fd;
+  struct stat statbuf;
+
   if (argc == 1)
     excp_cuserr("Usage: %s <disk_file>", argv[0]);
+  filename = argv[1];
 
-  const char *filename = argv[1];
-
-  int fd = open(filename, O_RDONLY);
-  if (fd == -1)
+  if ((fd = open(filename, O_RDONLY)) < 0)
     excp_syserr("open() failed on '%s'", filename);
-  printf("hello")
-  struct stat statbuf;
+
   if (fstat(fd, &statbuf) == -1)
     excp_syserr("fstat() failed on '%s'", filename);
 
@@ -55,7 +57,9 @@ int main(int argc, char *argv[argc + 1]) {
 }
 
 int mmapcopy(int fd, off_t len) {
-  char *ptr = mmap(NULL, (size_t)len, PROT_READ, MAP_SHARED, fd, 0);
+  char *ptr;
+
+  ptr = mmap(NULL, (size_t)len, PROT_READ, MAP_SHARED, fd, 0);
   if (ptr == MAP_FAILED) {
     perror("mmap() failed");
     return -1;

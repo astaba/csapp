@@ -1,10 +1,12 @@
-/* csapp/ch09-virtual-memory/090804-mmap/mmapcopy_v0.c */
-// Created on: Mon Nov 17 17:31:52 +01 2025
-// Practice problem 9.5:
-// Write a C program mmapcopy.c that uses mmap to copy an arbitrary-size disk
-// file to stdout. The name of the input file should be passed as a command-line
-// argument.
-
+/* =========================================================================
+ * Created on: <Mon Nov 17 17:31:52 +01 2025>
+ * Time-stamp: <Sat Mar 21 17:32:19 +00 2026 by owner>
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/vm/s090804-mmap/mmapcopy_v0.c -
+ * Practice problem 9.5: Write a C program mmapcopy.c that uses mmap
+ * to copy an arbitrary-size disk file to stdout. The name of the
+ * input file should be passed as a command-line argument.
+ * ========================================================================= */
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,12 +31,12 @@ int main(int argc, char *argv[argc + 1]) {
     perror("lseek() failed");
     exit(EXIT_FAILURE);
   }
-  // FIX: Nor required since mmap operates from its offset argument but best
+  // FIXME: Nor required since mmap operates from its offset argument but best
   // recommands to rewind before mmap.
   // HACK: By calling fstat() to get the file size prescind from any
   // manipulation of the file offset.
 
-  // FIX: Using both "MAP_PRIVATE | MAP_SHARED" is illegal.
+  // FIXME: Using both "MAP_PRIVATE | MAP_SHARED" is illegal.
   char *ptr = mmap(NULL, filelen, PROT_READ, MAP_PRIVATE | MAP_SHARED, fd, 0);
   if (ptr == MAP_FAILED) {
     perror("mmap() failed");
