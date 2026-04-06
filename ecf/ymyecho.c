@@ -1,10 +1,15 @@
-/* Created on: Thu Feb 12 15:13:47 +01 2026 */
-/* Practice Problem 8.6 (solution page 833): Write a program called
-myecho that prints its command-line arguments and environment
-variables. This program shows the difference between the golbal
-'environ' form the .data segment and the 'envp' as an argument of the
-'main()' function. */
-
+/* =========================================================================
+ * Created on: <Thu Feb 12 15:13:47 +01 2026> 
+ * Time-stamp: <Fri Mar 27 23:01:18 +01 2026 by owner> 
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/ymyecho.c -
+ * Practice Problem 8.6 (solution page 833):
+ * Write a program called myecho that prints its command-line arguments
+ * and environment variables. This program shows the difference between
+ * the golbal 'environ' form the .data segment and the 'envp' as an
+ * argument of the 'main()' function.
+ * Explanation: [[file:README.org::#what-is-happening-under-the-hood]]
+ * ========================================================================= */
 #include <stdio.h>
 #include <stdlib.h>
 

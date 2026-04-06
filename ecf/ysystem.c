@@ -1,5 +1,26 @@
-/* Problem 8.22 */
+/* =========================================================================
+ * Created on: <Fri Mar 27 21:55:23 +01 2026> 
+ * Time-stamp: <Fri Mar 27 22:12:41 +01 2026 by owner> 
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/ysystem.c -
+ * Problem 8.22
+ * Write your own version of the Unix system() function.
+ * More details: [[file:README.org::#problem-8-22]]
+ * ========================================================================= */
 #include "../include/csapp.h" /* IWYU pragma: keep */
+
+static int mysystem(char *command);
+
+int main() {
+  int status = mysystem("ls -l /tmp");
+  if (status == -1) {
+    fprintf(stderr, "ERROR: mysystem(): %s\n", strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  printf("\nCommand exit status: %d\n", status);
+  exit(EXIT_SUCCESS);
+}
 
 static int mysystem(char *command) {
   pid_t pid;
@@ -29,15 +50,4 @@ static int mysystem(char *command) {
   } else {
     return status; /* abnormal termination */
   }
-}
-
-int main() {
-  int status = mysystem("ls -l /tmp");
-  if (status == -1) {
-    fprintf(stderr, "ERROR: mysystem(): %s\n", strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  printf("\nCommand exit status: %d\n", status);
-  exit(EXIT_SUCCESS);
 }

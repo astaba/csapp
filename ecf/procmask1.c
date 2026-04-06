@@ -1,7 +1,8 @@
-/* Figure 8.39 A shell program with a subtle synchronization error. If
-   the child terminates before the parent is able to run, then addjob
-   and deletejob will be called in the wrong order. */
-
+/* Figure 8.39 A shell program.
+ * WARN: with a subtle synchronization error.
+ * If the child terminates before the parent is able to run,
+ * then addjob and deletejob will be called in the wrong order.
+ * See [[file:procmask2.c]] for improvement. */
 #include "../include/csapp.h"
 
 void initjobs() {}

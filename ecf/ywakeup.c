@@ -1,14 +1,20 @@
-/* Practice Problem 8.5 (solution page 833) */
-/* write a wrapper function for sleep, called wakeup, with the following
-interface: unsigned int wakeup(unsigned int secs);
-The wakeup function behaves exactly as the sleep function, except that it prints
-a message describing when the process actually woke up:
-> Woke up at 4 secs. */
+/* =========================================================================
+ * Created on: <Fri Mar 27 23:08:34 +01 2026>
+ * Time-stamp: <Fri Mar 27 23:34:41 +01 2026 by owner>
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/ywakeup.c -
+ * Practice Problem 8.5 (solution page 833):
+ * Write a wrapper function for sleep, called wakeup, with the following
+ * interface: unsigned int wakeup(unsigned int secs);
+ * The wakeup function behaves exactly as the sleep function, except that
+ * it prints a message describing when the process actually woke up:
+ * > Woke up at 4 secs.
+ * ========================================================================= */
 
-/* In C, the `sleep()` function returns the unslept time if it is interrupted by
-a signal. If it sleeps for the full duration, it returns `0`. The calculation `t
-- rc + 1` is a "human-friendly" adjustment for how we count time. Here is the
-breakdown:
+/* In C, the `sleep()` function returns the unslept time if it is
+   interrupted by a signal. If it sleeps for the full duration,
+   it returns `0`. The calculation `t - rc + 1` is a "human-friendly"
+   adjustment for how we count time. Here is the breakdown:
 
 - `t - rc` = Elapsed time (how long it actually stayed asleep).
 - `+ 1`    = Formatting/Rounding adjustment to show the "current" second rather

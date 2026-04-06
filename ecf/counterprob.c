@@ -1,5 +1,11 @@
-/* Problem 8.23 */
-
+/* =========================================================================
+ * Created on: <Fri Mar 27 16:40:22 +01 2026>
+ * Time-stamp: <Fri Mar 27 16:47:42 +01 2026 by owner>
+ * Author    : CS:APP
+ * Desc      : ~/coding/c_prog/csapp/ecf/counterprob.c -
+ * Figure 8.45 Counter program referenced in Problem 8.23.
+ * [[file:README.org::#problem-8-23]]
+ * ========================================================================= */
 #include "../include/csapp.h"
 
 int counter = 0;

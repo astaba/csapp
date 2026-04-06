@@ -2,31 +2,31 @@
 #+AUTHOR: Astar Bahouidi
 #+DESCRIPTION: CSAPP Chapter 8
 #+STARTUP: showeverything
-#+OPTIONS: TOC:2
 
-* Table of Contents :TOC:
-- [[#845-the-global-environ][8.4.5 The global =environ=]]
+* Table of Contents                                                   :toc_2:
+- [[#the-global-environ][The global =environ=]]
   - [[#1-accessibility-outside-of-main][1. Accessibility Outside of =main=]]
   - [[#2-dynamic-modification-the-moving-target][2. Dynamic Modification (The "Moving Target")]]
   - [[#the-passing-of-the-torch-logic][The "Passing of the Torch" Logic]]
   - [[#historical-context-the-third-argument][Historical Context: The "Third Argument"]]
-- [[#845-environ-migration][8.4.5 =environ= migration]]
-  - [[#the-experiment-stack-vsheap][The Experiment: Stack vs. Heap]]
-  - [[#what-is-happening-under-the-hood][What is happening under the hood?]]
-  - [[#summary-of-why-this-matters][Summary of Why This Matters]]
-- [[#846-usign-fork-and-execve-to-run-programs][8.4.6 Usign =fork= and =execve= to Run Programs]]
-  - [[#using-exit-in-child-process][Using =exit= in child process]]
-- [[#853-receiving-signals][8.5.3 Receiving Signals]]
-- [[#practice][Practice]]
+- [[#4-process-control][4 PROCESS CONTROL]]
+  - [[#45-loading-and-running-programs][4.5 Loading and Running Programs]]
+  - [[#46-usign-fork-and-execve-to-run-programs][4.6 Usign =fork= and =execve= to Run Programs]]
+- [[#5-signals][5 SIGNALS]]
+  - [[#52-sending-signals][5.2 Sending Signals]]
+  - [[#53-receiving-signals][5.3 Receiving Signals]]
+  - [[#54-blocking-and-unblocking-signals][5.4 Blocking and Unblocking Signals]]
+  - [[#55-writing-signal-handlers][5.5 Writing Signal Handlers]]
+  - [[#56-synchronizing-flows-to-avoid-nasty-concurrency-bugs][5.6 Synchronizing Flows to Avoid Nasty Concurrency Bugs]]
+  - [[#57-explicitly-wait-for-signals][5.7 Explicitly Wait for Signals]]
+- [[#6-non-local-jumps][6 NON LOCAL JUMPS]]
+- [[#practice][PRACTICE]]
   - [[#problem-811][Problem 8.11]]
   - [[#problem-812][Problem 8.12]]
   - [[#problem-813][Problem 8.13]]
   - [[#problem-814][Problem 8.14]]
   - [[#problem-815][Problem 8.15]]
   - [[#problem-816][Problem 8.16]]
-  - [[#problem-814-1][Problem 8.14]]
-  - [[#problem-815-1][Problem 8.15]]
-  - [[#problem-816-1][Problem 8.16]]
   - [[#problem-817][Problem 8.17]]
   - [[#problem-818][Problem 8.18]]
   - [[#problem-819][Problem 8.19]]
@@ -37,10 +37,9 @@
   - [[#problem-824][Problem 8.24]]
   - [[#problem-825][Problem 8.25]]
 
-* 8.4.5 The global =environ=
-
+* The global =environ=
 The reason we have both is primarily a matter of *scope and
-flexibility*. While =envp= is a convenient "gift" handed directly to
+flexibility*.  While =envp= is a convenient "gift" handed directly to
 =main=, it suffers from a major limitation: it is local to that
 function.
 
@@ -66,11 +65,11 @@ In a large-scale C project, many library functions (like =getenv=,
 :PROPERTIES:
 :CUSTOM_ID: dynamic-modification-the-moving-target
 :END:
-The environment is not static. If you call =setenv()= or =putenv()=, the
+The environment is not static.  If you call =setenv()= or =putenv()=, the
 environment might grow.
 
 - *The Problem:* The original =envp= passed to =main= points to a fixed
-  location on the *stack* (set up by the kernel). The stack has limited
+  location on the *stack* (set up by the kernel).  The stack has limited
   space.
 - *The Solution:* When you add enough new variables, =libc= will
   allocate a new, larger block of memory on the *heap*, copy the old
@@ -86,12 +85,13 @@ environment might grow.
 :PROPERTIES:
 :CUSTOM_ID: the-passing-of-the-torch-logic
 :END:
-| Feature       | =envp= (in =main=)             | =environ= (global)                     |
+| Feature       | ~envp~ (in ~main~)             | ~environ~ (global)                     |
+|               |                                | <20>                                   |
 |---------------+--------------------------------+----------------------------------------|
-| *Location*    | On the Stack (as an argument)  | In the =.data= segment                 |
-| *Scope*       | Local to =main()=              | Global (Accessible everywhere)         |
-| *Reliability* | Only reliable at program start | Updated by =setenv= / =putenv=         |
-| *Origin*      | Pushed by Kernel onto Stack    | Initialized by =_start= from the Stack |
+| *Location*    | cOn the Stack (as an argument) | In the ~.data~ segment                 |
+| *Scope*       | Local to ~main()~              | Global (Accessible everywhere)         |
+| *Reliability* | Only reliable at program start | Updated by ~setenv~ / ~putenv~         |
+| *Origin*      | Pushed by Kernel onto Stack    | Initialized by ~_start~ from the Stack |
 
 --------------
 
@@ -100,83 +100,51 @@ environment might grow.
 :CUSTOM_ID: historical-context-the-third-argument
 :END:
 Historically, =envp= wasn't even part of the ISO C standard; it's a
-POSIX extension. The standard C signature for main is just
-=int main(int argc, char **argv)=. Without =environ=, a strictly
+POSIX extension.  The standard C signature for main is just
+=int main(int argc, char **argv)=.  Without =environ=, a strictly
 standard-compliant C program would have no way to reach the environment
 at all!
 
-#+begin_quote
 *Warning:* If you are writing a program that modifies environment
 variables and then checks them later, **always use =environ= or
-=getenv()**=. Relying on =envp= after a =setenv()= call can lead to
+=getenv()**=.  Relying on =envp= after a =setenv()= call can lead to
 stale data or crashes.
 
-#+end_quote
+* 4 PROCESS CONTROL
+** 4.5 Loading and Running Programs
+*** Problem 8.6
+Write a program called myecho that prints its command-line arguments
+and environment variables.  For example:
+#+begin_example
+linux> ./myecho arg1 arg2
+Command-ine arguments:
+	argv[ 0]: myecho
+	argv[ 1]: arg1
+	argv[ 2]: arg2
+Environment variables:
+	envp[ 0]: PWD=/usr0/droh/ics/code/ecf
+	envp[ 1]: TERM=emacs
+	...
+	envp[25]: USER=droh
+	envp[26]: SHELL=/usr/local/bin/tcsh
+	envp[27]: HOME=/usr0/droh
+#+end_example
 
-Would you like to see a code snippet that demonstrates =environ= moving
-from the stack to the heap after a =setenv= call?
-
-* 8.4.5 =environ= migration
-
+**** Answer: ~environ~ migration
 Here is a demonstration of the "migration." This code will prove that
-while =envp= is a snapshot of the birth of the process, =environ= is the
-living, breathing record of the process's state.
+while =envp= is a snapshot of the birth of the process, =environ= is
+the living, breathing record of the process's state.
 
-** The Experiment: Stack vs. Heap
+***** Experimental Answer
 :PROPERTIES:
-:CUSTOM_ID: the-experiment-stack-vs.-heap
+:CUSTOM_ID: experimental-answer
 :END:
-This script compares the addresses before and after forcing the
+This program compares the addresses before and after forcing the
 environment to grow.
 
-#+begin_src C :tangle ymyecho.c
-  /* Created on: Thu Feb 12 15:13:47 +01 2026 */
-  /* Practice Problem 8.6 (solution page 833): Write a program called
-  myecho that prints its command-line arguments and environment
-  variables. This program shows the difference between the golbal
-  'environ' form the .data segment and the 'envp' as an argument of the
-  'main()' function. */
+References: [[file:ymyecho.c][Practice Problem 8.6 ymyecho]].
 
-  #include <stdio.h>
-  #include <stdlib.h>
-
-  extern char **environ;
-
-  int main(int argc, char *argv[], char *envp[]) {
-    size_t i;
-    printf("--- INITIAL STATE ---\n");
-    printf("envp    (stack): %p\n", (void *)envp);
-    printf("environ (.data): %p\n", (void *)environ);
-
-    /* 1. Check if they point to the same array initially */
-    if (envp == environ) {
-      printf("Result: 'envp' and 'environ' point to the same stack address.\n");
-    }
-    /* 2. force the environment to grow significantly. This will exceed the
-     ,* original stack allocation for the env array. */
-    printf("\n--- MODIFYING ENVIRONMENT ---\n");
-    for (i = 0; i < 100; i++) {
-      char name[10], value[10];
-      sprintf(name, "NAME_%03d", (int)i);
-      sprintf(value, "VALUE_%03d", (int)i);
-      setenv(name, value, 1);
-    }
-
-    printf("Original envp (stack): %p\n", (void *)envp);
-    printf("New environ   (.data): %p\n", (void *)environ);
-
-    if (envp != environ) {
-      printf("\nResult: 'environ' has migrated to the HEAP!\n");
-      printf("The original 'envp' argument is now STALE/OUTDATED.\n");
-    }
-
-    return EXIT_SUCCESS;
-  }
-#+END_SRC
-
---------------
-
-** What is happening under the hood?
+***** What is happening under the hood?
 :PROPERTIES:
 :CUSTOM_ID: what-is-happening-under-the-hood
 :END:
@@ -184,54 +152,52 @@ environment to grow.
    =environ= variable to the exact same memory address on the *Stack*
    where the Kernel placed the environment pointers.
 2. *The Threshold:* When you call =setenv=, =libc= realizes the
-   Kernel-provided stack space is fixed in size. It cannot simply "push"
+   Kernel-provided stack space is fixed in size.  It cannot simply "push"
    more data there without crashing into your program's actual data.
-3. *The Relocation:* =libc= calls =realloc= or =malloc=. It copies all
+3. *The Relocation:* =libc= calls =realloc= or =malloc=.  It copies all
    existing environment pointers to a new block in the *Heap*, adds your
    new variable, and updates the =environ= pointer in the =.data=
    segment to this new address.
 4. *The "Stale" Pointer:* The =envp= variable inside =main= is just a
-   local pointer on =main='s stack frame. It has no idea =libc= just
+   local pointer on =main='s stack frame.  It has no idea =libc= just
    moved the "source of truth." It still points to the old, original
    stack location.
 
-** Summary of Why This Matters
+***** Summary of Why This Matters
 :PROPERTIES:
 :CUSTOM_ID: summary-of-why-this-matters
 :END:
 - *Library Developers:* If you write a library, you *must* use =environ=
   because you don't have access to =main='s arguments.
-- *Security:* Sometimes attackers try to manipulate the stack. Knowing
+- *Security:* Sometimes attackers try to manipulate the stack.  Knowing
   that =environ= can move to the heap is a key part of understanding
   process memory safety.
 - *Consistency:* Always treat =envp= as a "read-only snapshot" of how
-  the program started. Treat =environ= as the "current state."
+  the program started.  Treat =environ= as the "current state."
 
-* 8.4.6 Usign =fork= and =execve= to Run Programs
-** Using =exit= in child process
+** 4.6 Usign =fork= and =execve= to Run Programs
+*** Using =exit= in child process
 
-Your "bad feeling" is actually a very sharp observation. You are
+Your "bad feeling" is actually a very sharp observation.  You are
 touching on a subtle but important distinction in Unix systems
 programming regarding how processes terminate.
 
 In the context of the CS:APP shell example, let's break down why
 =exit(0)= vs =_exit(0)= matters on line 44.
 
---------------
-
-*** The Short Answer: Why you are right
+**** The Short Answer: Why you are right
 :PROPERTIES:
 :CUSTOM_ID: the-short-answer-why-you-are-right
 :END:
 In a child process that has failed to =execve=, using *=_exit()=* is
 generally safer and more "correct" than =exit()=.
 
-- *=exit()=* is a high-level library call. It flushes standard I/O
+- *=exit()=* is a high-level library call.  It flushes standard I/O
   buffers and runs functions registered with =atexit()=.
-- *=_exit()=* is a direct system call. It terminates the process
+- *=_exit()=* is a direct system call.  It terminates the process
   immediately without any user-space cleanup.
 
-*** The Problem with =exit()= in a Forked Child
+**** The Problem with =exit()= in a Forked Child
 :PROPERTIES:
 :CUSTOM_ID: the-problem-with-exit-in-a-forked-child
 :END:
@@ -247,24 +213,24 @@ memory, including the state of the I/O buffers (like =stdout=).
 
 --------------
 
-*** Why CS:APP uses =exit(0)= anyway
+**** Why CS:APP uses =exit(0)= anyway
 :PROPERTIES:
 :CUSTOM_ID: why-csapp-uses-exit0-anyway
 :END:
 While =_exit()= is technically "cleaner" for child processes that fail
 to exec, the authors of CS:APP often use =exit()= for a few reasons:
 
-1. *Simplicity:* For students, =exit()= is familiar. Introducing
+1. *Simplicity:* For students, =exit()= is familiar.  Introducing
    =_exit()= requires explaining the difference between the C library
    and the system call interface prematurely.
 2. *The =execve= behavior:* Since =execve= (line 42) wipes the process
    memory anyway if it /succeeds/, the only time line 44 is reached is
-   if the command fails. In this simple shell, there usually isn't
+   if the command fails.  In this simple shell, there usually isn't
    enough buffered I/O to cause the "duplicate output" bug.
 3. *Standardization:* The wrapper =unix_error= and other CS:APP wrappers
    often use standard =exit=.
 
-*** Logic of the Process Flow
+**** Logic of the Process Flow
 :PROPERTIES:
 :CUSTOM_ID: logic-of-the-process-flow
 :END:
@@ -278,7 +244,7 @@ The flow of this specific code is:
 
 #+begin_quote
 *Pro Tip:* If you ever write a production-grade shell or a daemon,
-definitely use =_exit()= in the child path after a failed =exec=. It
+definitely use =_exit()= in the child path after a failed =exec=.  It
 prevents "double-flushing" and avoids triggering cleanup handlers that
 were meant only for the parent.
 
@@ -286,23 +252,36 @@ were meant only for the parent.
 
 --------------
 
-*** One more "Bad Feeling" you should have: Line 51
+**** One more "Bad Feeling" you should have: Line 51
 
 :PROPERTIES:
 :CUSTOM_ID: one-more-bad-feeling-you-should-have-line-51
 :END:
-While you're looking at termination, look at line 51. The parent uses
-=waitpid(pid, &status, 0)=. This shell is very basic---it doesn't handle
-*zombie processes* for background jobs (=bg=). If you run 100 commands
+While you're looking at termination, look at line 51.  The parent uses
+=waitpid(pid, &status, 0)=.  This shell is very basic---it doesn't handle
+*zombie processes* for background jobs (=bg=).  If you run 100 commands
 with =&=, and the parent never "waits" for them, those 100 processes
 will stay in the process table as zombies.
 
-* 8.5.3 Receiving Signals
+* 5 SIGNALS
+** 5.2 Sending Signals
+References:
+- [[file:kill.c][Figure 8.29 kill]] Using the kill function to send a signal to a
+  child.
 
+** 5.3 Receiving Signals
+References:
+- [[file:sigint.c][Figure 8.30 sigint]] A program that uses a signal handler to catch a
+  ~SIGINT~ signal.
+
+*** Problem 8.7
+:PROPERTIES:
+:CUSTOM_ID: problem-8-7
+:END:
 Write a program called snooze that takes a single command-line
-argument, calls the snooze function from Problem 8.5 with this
-argument, and then terminates. Write your program so that the user can
-interrupt the snooze function by typing =Ctrl+C= at the keyboard. For
+argument, calls the snooze function from [[file:ywakeup.c][Problem 8.5 ywakeup]] with this
+argument, and then terminates.  Write your program so that the user can
+interrupt the snooze function by typing =Ctrl+C= at the keyboard.  For
 example:
 
 #+BEGIN_SRC sh
@@ -312,55 +291,31 @@ Slept for 3 of 5 secs.
 linux>
 #+END_SRC
 
-#+BEGIN_SRC C :tangle ysnooze.c
-  /* Practice Problem 8.7 (solution page 834) */
-  /* See README.org */
-  
-  #include "../include/csapp.h"
+**** Answer
+References:
+- [[file:~/coding/c_prog/csapp/ecf/ysnooze.c][Practice Problem 8.7 ysnooze]].
 
-  static unsigned int snooze(unsigned int secs) {
-    unsigned int rc = sleep(secs);
-    printf("Slept for %d of %d\n", secs - rc, secs);
-    return rc;
-  }
-
-  static void handler(int sig) { return; }
-
-  int main(int argc, char *argv[argc + 1]) {
-    if (argc < 2 || strcmp(argv[1], "-h") == 0) {
-      fprintf(stderr, "Usage: %s time_secs\n", argv[0]);
-      exit(1);
-    }
-
-    if (signal(SIGINT, handler) == SIG_ERR) /* Install SIGINT handler */
-      unix_error("signal() failed");
-
-    (void)snooze(atoi(argv[1]));
-
-    return EXIT_SUCCESS;
-  }
-#+END_SRC
-
+***** Run Time Explanation
 The sleep() function returns prematurely whenever it receives a signal
-that is not ignored. The default action in case of =SIGINT= is to
+that is not ignored.  The default action in case of =SIGINT= is to
 terminate the process, thus had we not caught the signal with our
 one-statement handler, the process would be terminated right before
 the =snooze()= call could ever assign any value to =rc= after
-=sleep()= returns. The seemingly innocuous handler is fundamental in:
-
+=sleep()= returns.  The seemingly innocuous handler is fundamental in:
 1. catching the signal;
 2. preempting the default action;
 3. allowing the control flow to return to the ASM statement after
    =call sleep=, then assigning a value to =rc= and reaching the
    visually important =ptrinf()= call.
 
-On the terminal side check its default canonical mode of the =tty=
+***** Run Time TTY tips
+On the terminal side check the default canonical mode of the =tty=
 terminal with:
 
 =$ stty -a=
 
 The =echoctl= option is responsible for the echoing of control
-characters like =^C= after pressing =Ctrl-C= keys. All control
+characters like =^C= after pressing =Ctrl-C= keys.  All control
 characters echo representation come out of the scheme:
 
 =^X = ASCII(X) & 0x1F=
@@ -377,26 +332,778 @@ You can toggle that control echo on and off with:
 
 and run the 'snooze' process in between.
 
-* Practice
-** Problem 8.11
+** 5.4 Blocking and Unblocking Signals
 
-#+BEGIN_SRC C :tangle forkprob1.c
-/* Practice Problem 8.11 */
-/* How many “hello” output lines does this program print? */
+*** Figure 8.32
+Temporarily blocking a signal from being received.
+#+begin_src C
+   1  sigset_t mask, prev_mask;
+   2
+   3  Sigemptyset(&mask);
+   4  Sigaddset(&mask, SIGINT);
+   5
+   6  /* Block SIGINT and save previous blocked set */
+   7  Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+   8  // ... Code region that will not be interrupted by SIGINT
+   9  /* Restore previous blocked set, unblocking SIGINT */
+  10  Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+  11
+#+end_src
 
-#include "../include/csapp.h"
+*** Ignoring vs Blocking Signals
+There is a subtle but vital distinction in systems programming: the
+difference between *Blocking* a signal and *Ignoring* a signal.
 
-int main() {
-  int i;
+While they both result in the signal not interrupting your code /right
+now/, they behave very differently regarding the "memory" of the
+event.
 
-  for (i = 0; i < 2; i++)
-    Fork();
-  printf("hello\n");
-  exit(0);
+**** 1. The Core Difference: Memory vs. Deletion
+:PROPERTIES:
+:CUSTOM_ID: the-core-difference-memory-vs.-deletion
+:END:
+- *Blocking (=sigprocmask=):* This is like putting a letter in a
+  *mailbox*.  The kernel sees the signal arrive, realizes you are busy,
+  and puts it in a "Pending" queue.  As soon as you unblock it, the
+  signal is delivered, and your handler runs.
+- *Ignoring (=SIG_IGN=):* This is like throwing the letter in the
+  *shredder*.  The kernel sees the signal arrive, sees your preference
+  is =SIG_IGN=, and immediately discards it.  It is gone forever.
+
+**** 2. Why your =SIG_IGN= snippet isn't "Blocking"
+:PROPERTIES:
+:CUSTOM_ID: why-your-sig_ign-snippet-isnt-blocking
+:END:
+In your example:
+
+#+begin_src C
+signal(signum, SIG_IGN);
+// critical code runs here
+signal(signum, SIG_DFL);
+#+end_src
+
+If a signal arrives while you are running that "critical code," it is
+*discarded*.  When you restore =SIG_DFL= (the default behavior) on the
+next line, the program has no idea a signal ever attempted to
+arrive.  It will /not/ trigger the default action retroactively.
+
+**** 3. The CSAPP Context
+:PROPERTIES:
+:CUSTOM_ID: the-csapp-context
+:END:
+When CSAPP talks about "Blocking," they are specifically referring to
+*Postponement*.
+
+- *Implicit Blocking:* If you are already in a handler for =SIGINT=,
+  the kernel blocks =SIGINT= so you don't get a recursive "inception"
+  of handlers.  If a second =SIGINT= hits, it waits.  When your first
+  handler finishes, the second one triggers immediately.
+- *Explicit Blocking:* You use =sigprocmask= to protect a "Critical
+  Section" of code (like updating a global linked list) where you want
+  the signal to happen, but just *not yet*.
+
+**** 4. Comparison Table
+:PROPERTIES:
+:CUSTOM_ID: comparison-table
+:END:
+| Feature    | Blocking (=sigprocmask=)             | Ignoring (=SIG_IGN=)              |
+|            |                                      | <20>                              |
+|------------+--------------------------------------+-----------------------------------|
+| *State*    | Signal is "Pending"                  | Signal is "Discarded"             |
+| *Delivery* | Delivered as soon as unblocked       | Never delivered                   |
+| *Analogy*  | *On Hold*: "Please stay on the line" | *Busy Signal*: "Click... Bzzzzzz" |
+| *Use Case* | Protecting critical data structures  | Disabling features you don't want |
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+Your =SIG_IGN= trick is a valid way to protect a section of code, but
+it is *lossy*.  If a user hits =Ctrl+C= while you are ignoring it, the
+program will never react to that specific button press.
+
+If you use =sigprocmask= (Blocking), the program will "wait" until
+your critical code finishes and then *immediately* terminate (or run
+the handler) the moment you unblock.  In systems programming,
+*Blocking* is almost always preferred for critical sections because it
+doesn't "lose" user input or system events.
+
+*** Even explicit blocking doesn't redeem the third signal
+#+begin_quote
+First signal is handled with.  While first is hndled: Second signal is
+postponed through the bit vector; Third signal is disarded and lost
+for good.  Is explicit blocking allow to retreive the third signal???
+#+end_quote
+
+The short answer is: *No.* Even with explicit blocking, the third signal
+is lost forever.
+
+Explicit blocking (=sigprocmask=) does not change the fundamental
+architecture of the Linux signal system, which is *bit-vector based*,
+not *queue-based*.
+
+**** 1. The "Pending" Bit Vector (The Hardware Reality)
+:PROPERTIES:
+:CUSTOM_ID: the-pending-bit-vector-the-hardware-reality
+:END:
+Inside the Kernel, for every process, there is a *Pending Bit Vector*.
+Imagine a 64-bit integer where each bit represents a signal type:
+- Bit 2 is =SIGINT=.
+- Bit 17 is =SIGCHLD=.
+
+When a signal is "Pending" (because it is blocked), the Kernel simply
+flips that bit from =0= to =1=.
+
+- *First Signal:* The bit is =0=.  The Kernel flips it to =1= and tries
+  to deliver it.
+- *Second Signal:* If the first is still being handled (or is blocked),
+  the Kernel looks at the bit.  It is already =1=.  *It stays =1=.*
+- *Third Signal:* The Kernel looks at the bit.  It is already =1=.  *It
+  stays =1=.*
+
+There is no "counter" and no "list." The Kernel only knows *if* a signal
+of that type is waiting, not *how many* times it was sent.
+
+**** 2. Explicit Blocking vs. Implicit
+:PROPERTIES:
+:CUSTOM_ID: explicit-blocking-vs.-implicit
+:END:
+Explicit blocking (=sigprocmask=) simply tells the Kernel: "Check the
+Pending bit vector, but don't act on it until I give you the green
+light."
+
+It doesn't provide a bigger "bucket" to catch signals; it just keeps the
+"shutter" closed longer.  Whether you block for 1 second or 1 hour, that
+bit can only be "on" or "off."
+
+**** 3. The Only Exception: Real-Time Signals
+:PROPERTIES:
+:CUSTOM_ID: the-only-exception-real-time-signals
+:END:
+Standard signals (1--31, like =SIGINT=, =SIGKILL=) are non-queued.
+However, Linux supports *Real-Time Signals* (typically =SIGRTMIN= to
+=SIGRTMAX=).
+
+If you use =sigqueue()= to send these and install handlers with the
+=SA_SIGINFO= flag:
+1. They *are* queued.
+2. If you send 3, the process will eventually receive 3.
+3. They can carry a payload (an integer or pointer).
+
+**** 4. Why is it designed this way?
+:PROPERTIES:
+:CUSTOM_ID: why-is-it-designed-this-way
+:END:
+Standard signals are intended to represent *state changes*, not *data
+streams*.  * *Analogy:* A signal is like a "Fire Alarm." * If one person
+pulls the alarm, the bell rings.  * If ten people pull ten different
+alarms simultaneously, the bell still just rings.  * You don't need the
+bell to ring ten times to know the building is on fire; you just need to
+know the /state/ has changed to "Fire."
+
+**** Summary for your mental model:
+:PROPERTIES:
+:CUSTOM_ID: summary-for-your-mental-model
+:END:
+- *Explicit Blocking* allows you to control *when* you react.
+- *Standard Signals* only allow you to know *if* an event happened since
+  the last time you checked.
+- The *Third Signal* is always "shredded" because there is no place in
+  the bit-vector to store its existence once the "Pending" bit for that
+  type is already set.
+
+** 5.5 Writing Signal Handlers
+
+*** Safe Signal Handling
+*Our aim here is to give you some conservative guidelines for writing
+handlers that are safe to run concurrently.  If you ignore these
+guidelines, you run the risk of introducing some subtle concurrency
+errors.  With such errors your program works correctly most of the
+time.  However, when it fails, it fails in unpredictable and
+unrepeatable ways the are horrendously difficult to debug.  Forewarned
+is forearmed!*
+
+**** G0: Keep handlers as simple as possible
+:PROPERTIES:
+:CUSTOM_ID: gO
+:END:
+For example, the handler might simply set a global flag and return
+immediately.  While all processing associated with the receipt of the
+signal is performed by the main program, which periodically checks
+(and resets) the flag.
+
+**** G1: Call only /async-signal-safe/ functions in handlers
+:PROPERTIES:
+:CUSTOM_ID: g1
+:END:
+*Async-signal-safe* functions can be safely called from handler for
+because they have either of two properties:
+
+1. *Reentrant-safe:* Never access varaibles out of its scope.
+2. *Uninterruptible* by signal handlers.
+
+Notice that many popular functions, such as =printf=, =sprintf=,
+=malloc=, and =exit=, are not on the list *Async-signal-safe
+functions* list ([[shell:man 7 signal-safety]]).
+
+The only safe way to generate output from a signal handler is to use
+the =write= function (see Section 10.1).  In particular, calling
+=printf= or =sprintf= is unsafe.
+
+References:
+- [[file:~/coding/c_prog/csapp/src/csapp.c::/* Figure 8.34 The Sio (Safe I/O) package for signal handlers.][Figure 8.34 csapp]] The Sio (Safe I/O) package for signal handlers.
+- [[file:sigintsafe.c][Figure 8.35 sigintsafe]] A safe version of the SIGINT handler from
+  [[file:sigint.c][Figure 8.30 sigint]].
+
+**** G2: Save and restore ~errno~
+Since many /async-signal-safe/ functions set ~errno~ when they return on error, calling them inside a handler might interfere with other parts of the program that rely on errno.
+
+- If the handler returns to the calling flow, save it in a variable at
+  entry and restore it before returning.
+- If the handler terminates all flow with =_exit()=, don't bother
+  about ~errno~.
+
+**** G3: Protect accesses to shared global data structures by blocking all signals
+:PROPERTIES:
+:CUSTOM_ID: protect-accesses-to-shared-global-data-structures
+:END:
+The sequence of instructions necessary to access a blobal data
+structure ~d~ from the main proram could be interrupted by the
+handler.  In that event, the handler might find ~d~ in a inconsistent
+state, with unpredictable results.
+
+- *Curtail those structures from signals* when accessing them both in main program and handlers.
+
+**** G4: Declare global variable with ~volatile~
+Consider a global variable ~g~ shared by a handler and the main
+routine: handler updates ~g~ and main checks it periodically.
+
+To an *optimizing compiler* it would appear value of ~g~ never changes
+within main.  The reason is, a handler call as an
+Exception-Control-Flow is an hypothetical event completely outside of
+the compiler-predictable flow control based on *syntactic branching
+logic.* Thus it would be safe to satisfy all references to ~g~ with a
+copy cahed in a register.  Consequently, main would never see any
+updated value of ~g~.  Declaring:
+
+#+begin_src C
+  volatile int g;
+#+end_src
+
+would force the compiler to read every reference to ~g~ from memory.
+
+Of course *all access to global data shouls protected by temporarily
+blocking all signals.*
+
+**** G5: Declare /flags/ with ~sig_atomic_t~
+In the suggested design at [[#gO][G0 Guideline]], *C* allows to assure atomic
+access of flags shared in this way, by declaring them with a special
+*integer data type* as:
+
+#+begin_src C
+volatile sig_atomic_t flag;
+#+end_src
+
+*Notice*: The atomicity only applies to *individual read and write*.  It won't work for multiple-instruction statements like:
+
+#+begin_src C
+  flag++;				/* or */
+  flag = flag + 10;
+#+end_src
+
+*** Correct Signal Handling
+References:
+- [[file:~/coding/c_prog/csapp/ecf/signal1.c][Figure 8.36 signal1]] This program is flawed because it assumes that
+  signals are queued.
+- [[file:signal2.c][Figure 8.37 signal2]] An improved version of Figure 8.36 that
+  correctly accounts for the fact that signals are not queued.
+
+Run theses toy-shells, pause with ~Ctrl Z~ and check for *zombie
+processes* looking for ~Z~ or ~defunct~ in the ouptput of =ps t= or =ps
+aux= (=jobs -p= and =fg %<index>= come handy as well).
+
+**** SIGCHLD for production grade server
+:PROPERTIES:
+:CUSTOM_ID: sigchld-for-production-grade-server
+:END:
+The way [[file:signal2.c][Figure 8.37 signal2]] reaps children is the correct way, but the
+third argument to ~waitpid()~ set to ~options: 0~ makes it block as
+long as a running child is not dead to be reaped.  That blocking
+behavior could be damaging for a server that needs asynchronous signal
+handlers to return before it can service incoming connections.
+
+***** Passing ~WNOHANG~ the bad way
+Passing to ~waitpid()~ the third argument ~options: WNOHANG~ tells it
+not to block but to return ~0~ if children are there but not ready for
+harvest.  That sounds great but entails another fatal flaw.  The
+returned ~0~ would break the ~while~ loop with children still to be
+reaped.  The next ~if~ claused would then check for a *stale* ~errno~
+of very bad omen.  With ~errno~ most likely different of ~ECHILD~ since
+children are still running the ~Sio_error()~ would trigger and kill
+the whole process.  Nasty outcome.
+
+#+begin_src C
+  /* FIXME: Bad code */
+  while (waitpid(-1, NULL, WNOHANG) > 0) {
+    Sio_puts("Handler reaped child\n");
+  }
+  if (errno != ECHILD)
+    Sio_error("waitpid error");
+#+end_src
+
+***** Reaping children the right way
+:PROPERTIES:
+:CUSTOM_ID: reaping-children-the-right-way
+:END:
+Avoid stale values and *only ever check for ~errno~ when an error
+actually occured.*
+
+#+begin_src C
+  /* NOTE: The right way */
+  pid_t pid;
+  while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+     /* WARN: Not in production server */
+     Sio_puts("Handler reaped child\n");
+  }
+  if ((pid < 0) && (errno != ECHILD))
+    Sio_error("waitpid error");
+#+end_src
+
+**** Practice Problem 8.8
+References:
+- [3/3] [[file:~/coding/c_prog/csapp/ecf/signalprob0.c][Practice Problem 8.8 signalprob0]] What is the output of the
+  following program?
+  1. [X] Is signal registered for both parent and child? *Yes*.
+  2. [X] Signal protection around the parent access seems completely
+     useless since the parent is reaping the child before updating the
+     global variable.  Right? *In this case, but make a habit of always
+     protecting global variable access.*
+  3. [X] I don't get the concept of calling ~counter~ a “global
+     variable” in this specific program.  In my eyes it would be
+     justified if the parent were sending a signal to itself.  But in
+     this case neither ~volatile~ is necessary nor is it cogent to use
+     the “global variable” appellation after a fork.  Right? The
+     variable is GLOBAL to every single process, but yes, not shared
+     after fork.  The type qualifier foster good habit in the parent
+     process, but is absolutely necessary in the child lest handler
+     asynchronous update would be concealed by compiler optimization
+     to a register accessed by the main routine.
+
+**** Signal-protected Statement Blocks are not Atomic
+#+begin_quote
+After reading [[#protect-accesses-to-shared-global-data-structures][G3 Guideline]] , I wonder if blocking signals around a
+block of statement is equivalent to make them atomic, e.i., exonerated
+from contex switches and garanteed to run in one shot?
+#+end_quote
+
+This is a crucial distinction.  The short answer is: *No.* Blocking
+signals makes a block of code *atomic with respect to signal handlers*,
+but it does *not* make it atomic with respect to the *CPU or the
+Scheduler.*
+
+To understand this, you have to separate "Interrupts" into two
+categories: *Hardware/Signal Interrupts* and *Context Switches.*
+
+***** 1. The Signal "Shield" (What it DOES do)
+:PROPERTIES:
+:CUSTOM_ID: the-signal-shield-what-it-does-do
+:END:
+When you block all signals, you are essentially telling the kernel: /"If
+a signal arrives, do not jump into a handler function while I am inside
+this block."/
+
+From the perspective of your *Signal Handler*, the code is now "atomic."
+The handler cannot "interrupt" your global data update halfway through.
+This prevents the "Race Condition" where the parent is adding to a list
+and the child-reaper is deleting from it at the same time.
+
+***** 2. The Scheduler "Context Switch" (What it DOES NOT do)
+:PROPERTIES:
+:CUSTOM_ID: the-scheduler-context-switch-what-it-does-not-do
+:END:
+Blocking signals *does not stop the Linux Scheduler.* The Kernel can
+still decide that your process's "time slice" is up.  It will:
+1. Freeze your process right in the middle of your "protected" block
+2. Save your registers.
+3. Switch to a different process (like a web browser or a compiler).
+4. Later, switch back to your process and resume exactly where it left off.
+
+Since the other process lives in a different virtual memory space, it
+cannot see your global data.  Therefore, this "interruption" is
+*invisible* to your program's logic and doesn't cause a race condition.
+
+***** 3. "Atomic" vs. "Safe"
+:PROPERTIES:
+:CUSTOM_ID: atomic-vs.-safe
+:END:
+In systems programming, we use different tools for different types of
+"interruption":
+
+| Threat                  | Prevention Tool    | Effect                                                                                             |
+|                         |                    | <20>                                                                                                |
+|-------------------------+--------------------+----------------------------------------------------------------------------------------------------|
+| *Signal Handlers*       | =sigprocmask=      | Prevents handler from running on the same CPU core as your main thread.                            |
+| *Context Switches*      | /N/A (User space)/ | You cannot usually prevent these in standard Linux user-space.                                     |
+| *Multiple Threads/CPUs* | *Mutexes / Locks*  | Prevents two different threads on two different CPU cores from touching the data at the same time. |
+
+***** 4. Why CSAPP says "Protect Accesses"
+:PROPERTIES:
+:CUSTOM_ID: why-csapp-says-protect-accesses
+:END:
+In the specific context of Figure 8.40, the "Race" is only between the
+*Parent's =main()=* and the *Parent's =handler()=*.  Both of these run in
+the same process memory.
+
+The only way the =handler= can run is if a =SIGCHLD= arrives.  By
+blocking =SIGCHLD=, you ensure that the =main()= function can finish
+=addjob= before the =handler= is allowed to run and call =deletejob=.
+
+***** The Emacs Analogy
+:PROPERTIES:
+:CUSTOM_ID: the-emacs-analogy
+:END:
+Think of it like working in *Emacs*.  * *Blocking Signals:* Is like
+turning off =auto-save-mode= or specialized hooks while you perform a
+complex regex replace.  You are preventing /Emacs itself/ from triggering
+internal functions that might mess up your buffer while you are
+mid-edit.  * *Context Switching:* Is like you minimizing the Emacs window
+to check a browser.  Emacs is "frozen," but when you click back into it,
+the buffer is exactly as you left it.  The "interruption" (minimizing)
+didn't change the /internal state/ of your text.
+
+***** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+Blocking signals makes a block of code *"Signal-Safe"* and
+*"Reentrant-Safe"*, but the kernel is still free to context-switch you
+out at any time.  Because context switches are transparent to the process
+state, we generally don't care about them for data integrity---we only
+care about the asynchronous "jumps" into handler code.
+
+If you were doing *Kernel* programming, you would "disable interrupts"
+to achieve true, one-shot hardware atomicity, but in *User* programming
+(CSAPP), =sigprocmask= is the closest shield we have!
+
+*** Portable Signal Handling
+Reference:
+- [[file:~/coding/c_prog/csapp/src/csapp.c::handler_t *Signal(int signum, handler_t *handler) {][Figure 8.38 csapp]].
+
+#+begin_src C
+ 1   handler_t *Signal(int signum, handler_t *handler) {
+ 2
+ 3     struct sigaction action, old_action;
+ 4
+ 5     action.sa_handler = handler;
+ 6     sigemptyset(&action.sa_mask); /* Block sigs of type being handled */
+ 7     action.sa_flags = SA_RESTART; /* Restart syscalls if possible */
+ 8
+ 9     if (sigaction(signum, &action, &old_action) < 0)
+10       unix_error("Signal error");
+11     return (old_action.sa_handler);
+12   }
+#+end_src
+
+#+begin_quote
+How on earth is it possible for line 6 to block any signal.  I cannot
+see where it is specified.  I thought ~sigemptyset~ was there to
+initialize not to block.  I don't get that ~sigaction~ concept!
+#+end_quote
+
+I understand the confusion.  The "magic" isn't in what the =sigemptyset=
+function does, but in how the *Kernel* interprets the =struct sigaction=
+once you hand it over.
+
+To understand Line 6, you have to separate two different "Blocking"
+behaviors that happen when a signal handler is running.
+
+**** 1. The Implicit Block (Automatic)
+:PROPERTIES:
+:CUSTOM_ID: the-implicit-block-automatic
+:END:
+The comment in the CSAPP snippet is slightly misleading if read in
+isolation.  By default, POSIX =sigaction= *always* blocks the signal of
+the type currently being handled.  * If you are in a =SIGINT= handler,
+the kernel automatically adds =SIGINT= to the signal mask for the
+duration of that handler.  * You don't have to do anything to make this
+happen; it's a safety feature to prevent a signal from interrupting its
+own handler recursively.
+
+**** 2. The =sa_mask= (The "Extra" Block)
+:PROPERTIES:
+:CUSTOM_ID: the-sa_mask-the-extra-block
+:END:
+The =sa_mask= field in the =struct sigaction= is for *additional*
+signals you want to block while the handler is running.  * If you are
+handling =SIGINT=, but you also want to make sure =SIGQUIT= doesn't
+interrupt you, you would add =SIGQUIT= to =action.sa_mask=.
+
+**** 3. Why =sigemptyset=?
+:PROPERTIES:
+:CUSTOM_ID: why-sigemptyset
+:END:
+Line 6 (=sigemptyset(&action.sa_mask)=) is there to ensure that *no
+other* signals are blocked except for the one currently being handled.
+
+The code is essentially saying:
+1. "Set the handler to my function."
+2. *"Clear the extra mask."* (I don't want to block any /additional/
+   signals while this handler runs).
+3. "Let the kernel handle the default implicit blocking of the current
+   signal."
+
+**** 4. Why is it necessary to empty it?
+:PROPERTIES:
+:CUSTOM_ID: why-is-it-necessary-to-call-it
+:END:
+In C, local variables on the stack (like =struct sigaction action=) are
+*not initialized to zero*.  They contain "garbage" data from whatever was
+previously at that memory location.
+- If you don't call =sigemptyset=, =action.sa_mask= might contain random bits that tell the kernel to block every single signal on the system!
+- Line 6 is "initializing" the mask to a clean state (all zeros).
+
+**** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+The comment "Block sigs of type being handled" on Line 6 is actually
+describing the *result* of using =sigaction= in general, combined with
+the fact that we aren't adding any /extra/ signals to the mask.
+
+*The logic is:*
+1. Initialize (empty) the mask so we don't block random signals.
+2. Rely on the Kernel's default behavior to block the current signal
+   type while the handler executes.
+
+** 5.6 Synchronizing Flows to Avoid Nasty Concurrency Bugs
+References:
+- [[file:~/coding/c_prog/csapp/ecf/procmask1.c][Figure 8.39 procmask1]] *A shell program with a subtle synchronization
+  error.* If the child terminates before the parent is able to run,
+  then ~addjob~ and ~deletejob~ will be called in the wrong order.
+- [[file:procmask2.c][Figure 8.4O procmask2]] *Using* sigprocmask *to synchronize
+  processes.* In this example, the parent ensures that ~addjob~
+  executes before the corresponding ~deletejob~.
+
+The name =prev_one= is indeed a bit of a "shorthand" that O'Hallaron and
+Bryant use, and it can be misleading.  To understand it, you have to look
+at *exactly what was in the mask* right before that specific call.
+
+*** 1. The "State" vs. The "Change"
+:PROPERTIES:
+:CUSTOM_ID: the-state-vs.-the-change
+:END:
+The third argument of =sigprocmask= doesn't just hold "the old signals
+that were blocked"; it holds the *entire signal mask* (the bit-vector)
+as it existed the moment before the function was called.
+
+In this specific code:
+
+1. *Initial State:* Most signals are unblocked (the mask is mostly
+   =0=s).
+2. *=Sigprocmask(SIG_BLOCK, &mask_one, &prev_one)=*:
+   - You are telling the kernel: "Add =SIGCHLD= to the current mask."
+   - The kernel looks at the current mask (which is empty/default) and
+     saves it into =prev_one=.
+   - *=prev_one= now contains the "mostly empty" mask.*
+
+*** 2. Why the name =prev_one=?
+:PROPERTIES:
+:CUSTOM_ID: why-the-name-prev_one
+:END:
+The authors use the name =prev_one= to mean *"The PREVious mask that
+existed before I blocked ONE signal (SIGCHLD)."*
+
+It is a "Restore Point." They aren't naming it based on what is /in/ it,
+but based on /why/ they saved it.  They want to be able to go back to the
+state where =SIGCHLD= was not blocked.
+
+*** 3. The "Unblocking" Logic
+:PROPERTIES:
+:CUSTOM_ID: the-unblocking-logic
+:END:
+Look at the end of the =while= loop in =main=:
+
+#+begin_src C
+Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+#+end_src
+
+By using =SIG_SETMASK=, they are saying: "I don't care what the mask is
+right now; throw it away and replace it with exactly what was in
+=prev_one=." Since =prev_one= was saved back when =SIGCHLD= was
+unblocked, this line *unblocks* =SIGCHLD=.
+
+*** 4. The =mask_all= / =prev_all= contrast
+:PROPERTIES:
+:CUSTOM_ID: the-mask_all-prev_all-contrast
+:END:
+In the =handler=, they do this:
+
+#+begin_src C
+Sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+deletejob(pid);
+Sigprocmask(SIG_SETMASK, &prev_all, NULL);
+#+end_src
+
+Here, =prev_all= saves the mask that existed *before they blocked ALL
+signals*.  They do this to ensure =deletejob= (which modifies a global
+list) is completely atomic and cannot be interrupted by /anything/.
+
+*** 5. Common Confusion: Does it "stack"?
+:PROPERTIES:
+:CUSTOM_ID: common-confusion-does-it-stack
+:END:
+It is important to realize that =sigprocmask= doesn't have a "memory" or
+a "stack" of its own.
+
+- If you call =SIG_BLOCK= twice, you don't "unblock" twice to get back
+  to the start.
+- You are responsible for saving the "Old State" in a variable (like
+  =prev_one=) so you can manually "Set" the mask back to that state
+  later.
+
+*** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+Think of it like this:
+
+- *=mask_one=*: The "Request" (Please block =SIGCHLD=).
+- *=prev_one=*: The "Snapshot" (What did the mask look like before I
+  made that request?).
+
+*Regarding your Emacs note:* Since you like your environment to persist
+(like =winner-mode=), think of =prev_one= as a *Window Configuration* in
+Emacs.  Before you perform a disruptive action (like splitting the screen
+into 10 parts), you save the "previous" configuration so you can restore
+it exactly as it was with a single command.
+
+In C, =prev_one= is your "Undo" buffer for signal settings!
+
+** 5.7 Explicitly Wait for Signals
+References:
+- [[file:waitforsignal.c][Figure 8.41 waitforsignal1]] Waiting for a signal with a spin
+  loop.  This code is correct, but the spin loop is wasteful.
+- [[file:~/coding/c_prog/csapp/ecf/sigsuspend.c][Figure 8.42 sigsuspend]] Waiting for a signal with sigsuspend.
+
+#+begin_quote
+What is the point of catching SIGINT in a way that disables it? It
+makes the program difficult to kill.
+#+end_quote
+
+You've spotted a classic "textbook detail" that can be incredibly
+annoying in practice.  Why would O'Hallaron and Bryant include an empty
+=SIGINT= handler in a program that is supposed to demonstrate signal
+synchronization?
+
+The reason is actually about *demonstrating how =sigsuspend= (or in this
+case, a spin loop) reacts to /any/ signal.*
+
+*** 1. Preventing Program Death during the "Wait"
+:PROPERTIES:
+:CUSTOM_ID: preventing-program-death-during-the-wait
+:END:
+In this specific program, the Parent is in a tight loop:
+
+1. Fork a child.
+2. Unblock =SIGCHLD=.
+3. *Spin until =pid= is non-zero.*
+
+If you didn't have the =SIGINT= handler, hitting =Ctrl+C= would invoke
+the *Default Action*, which is to terminate the process immediately.
+By installing an empty handler, the authors ensure that if you hit
+=Ctrl+C=, the following happens:
+
+- The kernel jumps to the empty =sigint_handler=.
+- It returns immediately.
+- The Parent *remains alive* and continues spinning in the =while(!pid)=
+  loop.
+
+*** 2. The Theoretical Point (Signal Interruption)
+:PROPERTIES:
+:CUSTOM_ID: the-theoretical-point-signal-interruption
+:END:
+The authors likely included it to show that the "Wait" (the spin loop)
+can be interrupted by signals /other/ than the one you are waiting for.
+
+In a real shell (which this chapter is teaching you to build), you often
+want the shell to stay alive even if the user hits =Ctrl+C= to kill the
+/foreground job/.  If the shell didn't "catch" (and effectively ignore)
+=SIGINT=, the shell itself would die every time the user tried to stop a
+running program.
+
+*** 3. Why it's a "Bad" UX here
+:PROPERTIES:
+:CUSTOM_ID: why-its-a-bad-ux-here
+:END:
+As you noted, it makes the program a "zombie" that is hard to kill.
+Since the loop is:
+
+#+begin_src C
+while (1) {
+    // ... fork ...
+    while (!pid) ;
 }
-#+END_SRC
+#+end_src
 
-After the first iteration we have to processes:
+If you hit =Ctrl+C=, you trigger the empty handler, the loop continues,
+and you are still stuck.
+
+*How to kill it:* Because you only "caught" =SIGINT=, you can still kill
+it using:
+
+- =Ctrl+\= (SIGQUIT - usually mapped to the backslash).
+- =kill -9 <pid>= from another terminal.
+
+*** 4. The "Emacs" Perspective
+:PROPERTIES:
+:CUSTOM_ID: the-emacs-perspective
+:END:
+Think of this empty handler like a *hook that does nothing but
+=ignore=*.
+
+In Emacs, if you have a keybinding that is dangerous, you might bind it
+to a function that just returns =nil= so that the default behavior
+(which might close your buffer or delete your =winner-mode= history) is
+suppressed.
+
+Here, the =SIGINT= handler is a "noop" hook designed to prevent the
+"Default OS Hook" (Termination) from running.
+
+*** Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+The =SIGINT= handler is there to show that the process *stays in the
+loop* regardless of other system events.  However, in later sections
+(like Figure 8.42), they replace this wasteful "spin loop" with
+=sigsuspend=.  The empty =SIGINT= handler is kept there to prove that
+=sigsuspend= will wake up, see that =pid= is still =0= (because it
+wasn't a =SIGCHLD=), and go back to sleep---which is a much more
+efficient way to wait.
+
+It's a pedagogical choice to show *robustness*, even if it makes the
+test program feel like a trap!
+
+* 6 NON LOCAL JUMPS
+References:
+- [[file:~/coding/c_prog/csapp/ecf/setjmp.c][Figure 8.43 setjmp]] *Nonlocal jump example.* This example shows the
+  framework for using nonlocal jumps to recover from error conditions
+  in deeply nested functions without having to unwind the entire
+  stack.
+- [[file:~/coding/c_prog/csapp/ecf/restart.c][Figure 8.44 restart]] A program that uses nonlocal jumps to restart
+  itself when the user types =Ctrl+C=.
+
+* PRACTICE
+** Problem 8.11
+:PROPERTIES:
+:CUSTOM_ID: problem-8-11
+:END:
+How many “hello” output lines does this program print?
+
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob1.c]].
+
+*** Answer
+After the first iteration we have two processes:
 1. Parent process with one iteration to go.
 2. First child process with one iteration to go as well.
 The parent process runs its last iteration spawning the last second
@@ -408,46 +1115,25 @@ second child and first child's child processes: "hello\n" is print 4
 times.
 
 ** Problem 8.12
-#+BEGIN_SRC C :tangle forkprob4.c
-/* Practice Problem 8.12 */
-/* How many “hello” output lines does this program print? */
-#include "csapp.h"
+:PROPERTIES:
+:CUSTOM_ID: problem-8-12
+:END:
+How many “hello” output lines does this program print?
 
-void doit() {
-  Fork();
-  Fork();
-  printf("hello\n");
-  return;
-}
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob4.c]].
 
-int main() {
-  doit();
-  printf("hello\n");
-  exit(0);
-}
-#+END_SRC
-
+*** Answer
 Its outputs 8 "hello" lines.
 
 ** Problem 8.13
-#+BEGIN_SRC C :tangle forkprob3.c
-  /* Practice Problem 8.13 */
-  /* What is one possible output of the following program? */
-  /* $begin forkprob3 */
-  #include "csapp.h"
+:PROPERTIES:
+:CUSTOM_ID: problem-8-13
+:END:
+What is one possible output of the following program?
 
-  int main() {
-    int x = 3;
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob3.c]].
 
-    if (Fork() != 0)
-      printf("x=%d\n", ++x);
-
-    printf("x=%d\n", --x);
-    exit(0);
-  }
-  /* $end forkprob3 */
-#+END_SRC
-
+*** Answer
 One possible output is:
 #+BEGIN_SRC shell
 x=4
@@ -456,159 +1142,46 @@ x=2
 #+END_SRC
 
 ** Problem 8.14
-#+BEGIN_SRC C :tangle forkprob5.c
-/* Practice Problem 8.14 */
-/* How many “hello” output lines does this program print? */
-/* $begin forkprob5 */
-#include "csapp.h"
+:PROPERTIES:
+:CUSTOM_ID: problem-8-14
+:END:
+How many “hello” output lines does this program print?
 
-void doit() {
-  if (Fork() == 0) {
-    Fork();
-    printf("hello\n");
-    exit(0);
-  }
-  return;
-}
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob5.c]].
 
-int main() {
-  doit();
-  printf("hello\n");
-  exit(0);
-}
-/* $end forkprob5 */
-#+END_SRC
-
+*** Answer
 It prints three lines.
 
 ** Problem 8.15
-#+BEGIN_SRC C :tangle forkprob6.c
-  /* Practice Problem 8.15 */
-  /* How many “hello” output lines does this program print? */
-  /* $begin forkprob6 */
-  #include "csapp.h"
+:PROPERTIES:
+:CUSTOM_ID: problem-8-15
+:END:
+How many “hello” output lines does this program print?
 
-  void doit() {
-    if (Fork() == 0) {
-      Fork();
-      printf("hello\n");
-      return;
-    }
-    return;
-  }
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob6.c]].
 
-  int main() {
-    doit();
-    printf("hello\n");
-    exit(0);
-  }
-  /* $end forkprob6 */
-#+END_SRC
-
+*** Answer
 It prints five line
+
 ** Problem 8.16
-#+BEGIN_SRC C :tangle forkprob6.c
-  /* Practice Problem 8.16 */
-  /* What is the output of the following program? */
-  /* $begin forkprob7 */
-  #include "csapp.h"
-  int counter = 1;
+:PROPERTIES:
+:CUSTOM_ID: problem-8-16
+:END:
+What is the output of the following program?
 
-  int main() {
-    if (() != 0)
-      printf("x=%d\n", ++x);
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob7.c]]
 
-    printf("x=%d\n", --x);
-    exit(0);
-  }
-  /* $end forkprob3 */
-#+END_SRC
-
-One possible output is:
-#+BEGIN_SRC shell
-x=4
-x=3
-x=2
-#+END_SRC
-
-** Problem 8.14
-#+BEGIN_SRC C :tangle forkprob5.c
-/* Practice Problem 8.14 */
-/* How many “hello” output lines does this program print? */
-/* $begin forkprob5 */
-#include "csapp.h"
-
-void doit() {
-  if (Fork() == 0) {
-    Fork();
-    printf("hello\n");
-    exit(0);
-  }
-  return;
-}
-
-int main() {
-  doit();
-  printf("hello\n");
-  exit(0);
-}
-/* $end forkprob5 */
-#+END_SRC
-
-It prints three lines.
-
-** Problem 8.15
-#+BEGIN_SRC C :tangle forkprob6.c
-  /* Practice Problem 8.15 */
-  /* How many “hello” output lines does this program print? */
-  /* $begin forkprob6 */
-  #include "csapp.h"
-
-  void doit() {
-    if (Fork() == 0) {
-      Fork();
-      printf("hello\n");
-      return;
-    }
-    return;
-  }
-
-  int main() {
-    doit();
-    printf("hello\n");
-    exit(0);
-  }
-  /* $end forkprob6 */
-#+END_SRC
-
-It prints five line
-** Problem 8.16
-#+BEGIN_SRC C :tangle forkprob6.c
-  /* Practice Problem 8.16 */
-  /* What is the output of the following program? */
-  /* $begin forkprob7 */
-  #include "csapp.h"
-  int counter = 1;
-
-  int main() {
-    if (Fork() == 0) {
-      counter--;
-      exit(0);
-    } else {
-      Wait(NULL);
-      printf("counter = %d\n", ++counter);
-    }
-    exit(0);
-  }
-  /* $end forkprob7 */
-#+END_SRC
-
+*** Answer
 The output is =counter = 2=.
 
 ** Problem 8.17
-Enumerate all of the possible outputs of the program in Practice
-Problem 8.4.
+:PROPERTIES:
+:CUSTOM_ID: problem-8-17
+:END:
+Enumerate all of the possible outputs of the program in
+[[file:~/coding/c_prog/csapp/ecf/waitprob1.c][Practice Problem 8.4]].
 
+*** Answer
 Either:
 #+BEGIN_SRC shell
   Hello
@@ -630,96 +1203,71 @@ or:
 #+END_SRC
 
 ** Problem 8.18
-Determine which of the following outputs are possible. Note: The
+:PROPERTIES:
+:CUSTOM_ID: problem-8-18
+:END:
+Determine which of the following outputs are possible.  Note: The
 atexit function takes a pointer to a function and adds it to a list of
 functions (initially empty) that will be called when the exit function
 is called.
 
 A. 112002
-B. 211020 Impossible
+B. 211020
 C. 102120
-D. 122001 Impossible
+D. 122001
 E. 100212
 
-#+BEGIN_SRC C :tangle forkprob2.c
-  /* Problem 8.18 */
-  /* $begin forkprob2 */
-  #include "csapp.h"
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob2.c]].
 
-  void end(void) {
-    printf("2");
-    fflush(stdout);
-  }
+*** Help script forkprob2
+:PROPERTIES:
+:CUSTOM_ID: help-script-forkprob2
+:END:
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob2.sh]].
+#+begin_src shell
+  # WARN: Editing and tangling kill exec permission.
+#+end_src
 
-  int main() {
-    if (Fork() == 0)
-      atexit(end);
-    if (Fork() == 0) {
-      printf("0");
-      fflush(stdout);
-    } else {
-      printf("1");
-      fflush(stdout);
-    }
-    exit(0);
-  }
-  /* $end forkprob2 */
-#+END_SRC
+*** Evaluation Test
+Change =val= and =iter= value and press =C-c C-c= in the code block.
+
+#+begin_src shell results: output :var val=100212 iter=10000
+  ./forkprob2.sh $val $iter
+#+end_src
+
+#+RESULTS:
+: Match 100212
+
+*** Answer
+B. 211020 Impossible
+D. 122001 Impossible
+
 ** Problem 8.19
+:PROPERTIES:
+:CUSTOM_ID: problem-8-19
+:END:
 How many lines of output does the following function print if the
 value of n entered by the user is 6?
 
-#+BEGIN_SRC C :tangle forkprob8.c
-  /* Problem 8.19 */
-  #include "csapp.h"
+Ref: [[file:~/coding/c_prog/csapp/ecf/forkprob8.c]].
 
-  /* $begin forkprob8 */
-  void foo(int n) {
-    int i;
-
-    for (i = 0; i < n; i++)
-      Fork();
-    printf("hello\n");
-    exit(0);
-  }
-  /* $end forkprob8 */
-
-  int main(int argc, char **argv) {
-    if (argc < 2) {
-      printf("usage: %s <n>\n", argv[0]);
-      exit(0);
-    }
-    foo(atoi(argv[1]));
-    exit(0);
-  }
-#+end_src
-
+*** Answer
 For =n = 6= there will be =2^6 = 64= lines of putput.
 
 ** Problem 8.20
+:PROPERTIES:
+:CUSTOM_ID: problem-8-20
+:END:
 Use execve to write a program called =myls= whose behavior is
-identical to the =/bin/ls= program. Your program should accept the
+identical to the =/bin/ls= program.  Your program should accept the
 same command-line arguments, interpret the identical environment
 variables, and produce the identical output.
 
 The =ls= program gets the width of the screen from the =COLUMNS=
-environment variable. If =COLUMNS= is unset, then ls assumes that the
-screen is 80 columns wide. 
+environment variable.  If =COLUMNS= is unset, then ls assumes that the
+screen is 80 columns wide.
 
-#+BEGIN_SRC C :tangle ymyls.c
-  /* Problem 8.20 */
-  #include "../include/csapp.h" // IWYU pragma: keep
-
-  int main(int argc, char *argv[], char *envp[]) {
-    char *ls_path = "/bin/ls";
-
-    if (execve(ls_path, argv, envp) == -1) {
-      perror("execve() failed");
-      exit(EXIT_FAILURE);
-    }
-  }
-#+end_src
-
+*** TTY Settings in Modern GNU
 Using *=stty cols N=* to directly broadcast the terminal width is
 actually the most reliable way to force =ls= (and therefore =myls=) to
 respect a custom width, because it bypasses the environment variable
@@ -728,20 +1276,17 @@ ambiguity and sets the terminal's reported size at the system level.
 Here's why that works better than =COLUMNS= on modern GNU =ls=:
 
 - *Terminal query wins:* GNU =ls= first asks the terminal for its width
-  using =ioctl(TIOCGWINSZ)=. If it gets a valid answer, it ignores
+  using =ioctl(TIOCGWINSZ)=.  If it gets a valid answer, it ignores
   =COLUMNS=.
 - *=COLUMNS= fallback:* Only if the terminal doesn't report a width
   (e.g., when output is redirected or piped) does =ls= fall back to the
   =COLUMNS= environment variable.
 - *=stty cols N=:* This command changes the terminal's reported width to
-  =N=. So when =ls= queries the terminal, it sees your forced width and
+  =N=.  So when =ls= queries the terminal, it sees your forced width and
   formats accordingly.
 
-*** Example
-:PROPERTIES:
-:CUSTOM_ID: example
-:END:
-#+BEGIN_SRC sh
+**** Example
+#+begin_src sh
 stty cols 40
 ./myls   # output formatted to 40 columns
 
@@ -749,59 +1294,44 @@ stty cols 80
 ./myls   # back to 80 columns
 #+end_src
 
+*** Answer
+
+Ref: [[file:~/coding/c_prog/csapp/ecf/ymyls.c]].
+
 ** Problem 8.21
+:PROPERTIES:
+:CUSTOM_ID: problem-8-21
+:END:
 What are the possible output sequences from the following program?
 
-#+BEGIN_SRC C :tangle waitprob3.c
-  /* Problem 8.21 */
-  /* What are the possible output sequences from the following
-     program? */
+Ref: [[file:~/coding/c_prog/csapp/ecf/waitprob3.c]].
 
-  #include "csapp.h"
-
-  /* $begin waitprob3 */
-  int main() {
-    if (fork() == 0) {
-      printf("a");
-      fflush(stdout);
-      exit(0);
-    } else {
-      printf("b");
-      fflush(stdout);
-      waitpid(-1, NULL, 0);
-    }
-    printf("c");
-    fflush(stdout);
-    exit(0);
-  }
-  /* $end waitprob3 */
-#+end_src
-
+*** Answer
 Only =abc= and =bac= are possible.
 
 ** Problem 8.22
-Write your own version of the Unix system function
+:PROPERTIES:
+:CUSTOM_ID: problem-8-22
+:END:
+Write your own version of the Unix =system= function as:
 
 #+BEGIN_SRC C
   int mysystem(char *command);
 #+end_src
 
 The =mysystem= function executes command by invoking =/bin/sh -c
-command=, and then returns after =command= has completed. If =command=
+command=, and then returns after =command= has completed.  If =command=
 exits normally (by calling the =exit= function or executing a =return=
-statement), then mysystem returns the command exit status. For
+statement), then mysystem returns the command exit status.  For
 example, if command terminates by calling =exit(8)=, then =mysystem=
-returns the value =8=. Otherwise, if =command= terminates abnormally,
+returns the value =8=.  Otherwise, if =command= terminates abnormally,
 then =mysystem= returns the status returned by the shell.
 
-*** The purpose of =system= library function 
+*** The purpose of =system= library function
 Let's place =system()= in the context of the classic *process‑spawning
 chain* (=fork=, =exec*=, =wait*=).
 
 **** What =system()= Does
-:PROPERTIES:
-:CUSTOM_ID: what-system-does
-:END:
 - =system(const char *command)= is a *library function* in C (from
   =<stdlib.h>=).
 - It takes a shell command string (e.g., ="ls -l /tmp"=) and runs it as
@@ -817,21 +1347,16 @@ So =system()= is essentially a convenience wrapper around the =fork= →
 =exec= → =wait= chain.
 
 **** Comparison
-:PROPERTIES:
-:CUSTOM_ID: comparison
-:END:
-| Aspect                 | Manual =fork= + =exec= + =wait=          | =system()=                                                           |
+| Aspect                 | Manual ~fork~ + ~exec~ + ~wait~          | ~system()~                                                           |
+|                        | <20>                                     | <20>                                                                 |
 |------------------------+------------------------------------------+----------------------------------------------------------------------|
 | Control over arguments | Full control (you pass argv, envp)       | Limited --- you pass a single command string                         |
-| Shell involvement      | Not required (execs program directly)    | Always runs through a shell (=/bin/sh -c=)                           |
-| Error handling         | You handle =fork=/=exec= errors yourself | =system()= returns =-1= on fork error, or child's exit status        |
+| Shell involvement      | Not required (execs program directly)    | Always runs through a shell (~/bin/sh -c~)                           |
+| Error handling         | You handle ~fork~/~exec~ errors yourself | ~system()~ returns ~-1~ on fork error, or child's exit status        |
 | Convenience            | Verbose, but precise                     | Very easy, one call                                                  |
 | Security               | Safer (no shell parsing)                 | Risky if command string comes from untrusted input (shell injection) |
 
 **** Example
-:PROPERTIES:
-:CUSTOM_ID: example
-:END:
 Manual approach:
 
 #+BEGIN_SRC C
@@ -853,9 +1378,6 @@ Using =system()=:
 #+END_SRC
 
 **** Purpose in the Chain
-:PROPERTIES:
-:CUSTOM_ID: purpose-in-the-chain
-:END:
 - =system()= is a *high‑level shortcut*: it hides the details of =fork=,
   =exec=, and =wait=.
 - It's great for quick commands, scripts, or prototyping.
@@ -863,107 +1385,48 @@ Using =system()=:
   file descriptors, you drop down to the explicit =fork=/=exec=/=wait=
   chain.
 
---------------
+**** Summary
+So in short: =system()= is a convenience wrapper that spawns a shell
+to run a command, internally relying on =fork=, =exec=, and =wait=.
 
-So in short: *=system()= is a convenience wrapper that spawns a shell to
-run a command, internally relying on =fork=, =exec=, and =wait=.*
+*** Answer
 
-*** =mysystem=
-#+BEGIN_SRC C :tangle ysystem.c
-  /* Problem 8.22 */
-  #include "../include/csapp.h" /* IWYU pragma: keep */
-
-  static int mysystem(char *command) {
-    pid_t pid;
-    int status;
-    const char *shell_path;
-
-    shell_path = getenv("SHELL");
-    if (shell_path == NULL)
-      shell_path = "/bin/sh";
-
-    if (command == NULL)
-      return (access(shell_path, X_OK) == 0) ? 1 : 0;
-
-    if ((pid = fork()) < 0)
-      return -1; /* errno set by fork */
-
-    if (pid == 0) {
-      execl(shell_path, shell_path, "-c", command, (char *)NULL);
-      _exit(127); /* exec failed */
-    }
-
-    if (waitpid(pid, &status, 0) < 0)
-      return -1; /* errno set by waitpid */
-
-    if (WIFEXITED(status)) {
-      return WEXITSTATUS(status);
-    } else {
-      return status; /* abnormal termination */
-    }
-  }
-
-  int main() {
-    int status = mysystem("ls -l /tmp");
-    if (status == -1) {
-      fprintf(stderr, "ERROR: mysystem(): %s\n", strerror(errno));
-      exit(EXIT_FAILURE);
-    }
-
-    printf("\nCommand exit status: %d\n", status);
-    exit(EXIT_SUCCESS);
-  }
-#+END_SRC
+Ref: [[file:~/coding/c_prog/csapp/ecf/ysystem.c]].
 
 ** Problem 8.23
+:PROPERTIES:
+:CUSTOM_ID: problem-8-23
+:END:
+One of your colleagues is thinking of using signals to allow a parent
+process to count events that occur in a child process.  The idea is to
+notify the parent each time an event occurs by sending it a signal and
+letting the parent’s signal handler increment a global counter
+variable, which the parent can then inspect after the child has
+terminated.  However, when he runs the test program in [[file:~/coding/c_prog/csapp/ecf/counterprob.c][Figure 8.45]] on
+his system, he discovers that when the parent calls =printf=, counter
+always has a value of 2, even though the child has sent five signals
+to the parent.  Perplexed, he comes to you for help.  Can you explain
+the bug?
 
+*** Answer
 Although 5 signals are sent from child to parent, at parent's exit
 src_C{counter = 2;}.
 
-The raison is signals are not queued. After installing a =s_handler=
+The raison is signals are not queued.  After installing a =s_handler=
 to catch =s= signal, a first =s= signal is caught and handles by
-=s_handler=. If a second =s= signal arrives while =s_handler= is
+=s_handler=.  If a second =s= signal arrives while =s_handler= is
 running, the second signal is added to the pending vector by the
-system for later handling. Any subsequent arrival of =s= type signal
+system for later handling.  Any subsequent arrival of =s= type signal
 while the handler is running are not queued but outright discarded and
-lost for good. When the handler returns the system sees in the pending
-vector the "ON" bit for the =s= signal and forces the process to
-handle the pending signal setting =counter= to 2.
-
-#+BEGIN_SRC C :tangle counterprob.c
-  /* Problem 8.23 */
-
-  #include "../include/csapp.h"
-
-  int counter = 0;
-
-  void sigint_handler(int sig) {
-    counter++;
-    sleep(1); /* Do some work in the handler */
-    return;
-  }
-
-  int main() {
-    int i;
-
-    Signal(SIGUSR2, sigint_handler);
-
-    if (Fork() == 0) { /* Child */
-      for (i = 0; i < 5; i++) {
-	Kill(getppid(), SIGUSR2);
-	printf("sent SIGUSR2 N°%d to parent\n", i + 1);
-      }
-      exit(0);
-    }
-
-    Wait(NULL);
-    printf("counter=%d\n", counter);
-    exit(0);
-  }
-#+end_src
+lost for good.  When the handler returns the system sees in the
+pending vector the "ON" bit for the =s= signal and forces the process
+to handle the pending signal setting =counter= to 2.
 
 ** Problem 8.24
-Modify the program in Figure 8.18 so that the following two conditions
+:PROPERTIES:
+:CUSTOM_ID: problem-8-24
+:END:
+Modify the program in [[file:~/coding/c_prog/csapp/ecf/waitpid1.c][Figure 8.18]] so that the following two conditions
 are met:
 1. Each child terminates abnormally after attempting to write to a
    location in the read-only text segment.
@@ -972,54 +1435,22 @@ are met:
      - =child 12255 terminated by signal 11: Segmentation fault=
      - =child 12254 terminated by signal 11: Segmentation fault=
 
-Hint: Read the man page for psignal(3).
+Hint: Read the man page for =psignal(3)=.
 
-#+BEGIN_SRC C :tangle segfault.c
-  /* Problem 8.24 */
-  #include "../include/csapp.h"
-  #define N 2
+*** Answer
 
-  /* Dummy function on the .text segment */
-  void foo() {};
-
-  int main() {
-    size_t i;
-    pid_t pid;
-    int status;
-    int *p = (int *)foo; /* Retreive address on the read-only .text segment */
-
-    /* Parent create N children */
-    for (i = 0; i < N; i++)
-      if (Fork() == 0) {
-	,*p = 1; /* Overwrite on .text segment: trigger segmentation fault */
-	exit(100 + i); /* Control flow never gets here */
-      }
-
-    /* Parent reaps N children in no particular order */
-    while ((pid = waitpid(-1, &status, 0)) > 0) {
-      if (WIFEXITED(status)) {
-	printf("[PID:%ld]child process: terminated normally: status = %d\n",
-	       (long)pid, WEXITSTATUS(status));
-      } else if (WIFSIGNALED(status)) {
-	int sig = WTERMSIG(status);
-	char s[MAXBUF];
-	snprintf(s, MAXBUF, "child %ld terminated by signal %d", (long)pid, sig);
-	psignal(sig, s);
-      }
-    }
-
-    /* The only normal termination is if there are no more children */
-    if (errno != ECHILD)
-      unix_error("waitpid() failed");
-
-    exit(0);
-  }
-#+end_src
+Ref: [[file:~/coding/c_prog/csapp/ecf/ysegfault.c]].
 
 ** Problem 8.25
+:PROPERTIES:
+:CUSTOM_ID: problem-8-25
+:END:
 Write a version of the =fgets= function, called =tfgets=, that times
 out after 5 seconds.  The =tfgets= function accepts the same inputs as
-=fgets=. If the user doesn’t type an input line within 5 seconds,
-=tfgets= returns =NULL=. Otherwise, it returns a pointer to the input
+=fgets=.  If the user doesn’t type an input line within 5 seconds,
+=tfgets= returns =NULL=.  Otherwise, it returns a pointer to the input
 line.
 
+*** Answer
+
+Ref: [[file:~/coding/c_prog/csapp/ecf/ytfgets.c]].

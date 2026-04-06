@@ -1,17 +1,25 @@
-/* Figure 8.37 signal2.
- * NOTE: An improved version of [[file:signal1.c]]
- * that correctly accounts for the fact that signals are not queued.
- * See [[file:README.org::#reaping-children-the-right-way]]
- * for an server-grade improvement on non-blocking waitpid() call. */
+/* =========================================================================
+ * Created on: <Sun Mar 29 01:14:44 +01 2026>
+ * Time-stamp: <Sun Mar 29 01:27:50 +01 2026 by owner>
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/signal21.c -
+ * Server grade improvement of [[file:signal2.c][Figure 8.37 signal2]].
+ * See [[file:README.org::#sigchld-for-production-grade-server]]
+ * ========================================================================= */
 #include "../include/csapp.h"
 
 void handler2(int sig) {
   int olderrno = errno;
+  pid_t pid;
 
-  while (waitpid(-1, NULL, 0) > 0) {
+  /* NOTE: Unblock with WNOHANG and return 0 when no child is ready to be
+   * reaped. */
+  while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
     Sio_puts("Handler reaped child\n");
   }
-  if (errno != ECHILD)
+  /* WARN: Only ever check errno when an actual error ocurred. */
+  /* Try removing the "pid < 0 &&" test to see why. */
+  if (pid < 0 && errno != ECHILD)
     Sio_error("waitpid error");
   Sleep(1); /* Models shell various cleanup after reaping child process. */
   errno = olderrno;

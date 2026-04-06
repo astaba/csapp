@@ -1,4 +1,13 @@
-/* Problem 8.24 */
+/* =========================================================================
+ * Created on: <Fri Mar 27 16:58:45 +01 2026> 
+ * Time-stamp: <Fri Mar 27 22:21:50 +01 2026 by owner> 
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/ysegfault.c -
+ * Problem 8.24: Modify the program in
+ * [[file:~/coding/c_prog/csapp/ecf/waitpid1.c]]
+ * so that the following two conditions are met.
+ * More details: [[file:README.org::#problem-8-24]]
+ * ========================================================================= */
 #include "../include/csapp.h"
 #define N 2
 
@@ -14,7 +23,7 @@ int main() {
   /* Parent create N children */
   for (i = 0; i < N; i++)
     if (Fork() == 0) {
-      *p = 1; /* Overwrite on .text segment: trigger segmentation fault */
+      *p = 1; /* HACK: Overwrite on .text segment: trigger segfault */
       exit(100 + i); /* Control flow never gets here */
     }
 

@@ -1,5 +1,5 @@
 /* Figure 8.41 Waiting for a signal with a spin loop.*/
-/* WARNING: This code is correct, but the spin loop is wasteful of
+/* WARN: This code is correct, but the spin loop is wasteful of
    processor resources. */
 /* $begin waitforsignal */
 #include "../include/csapp.h"

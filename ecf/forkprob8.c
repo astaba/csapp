@@ -1,7 +1,15 @@
-/* Problem 8.19 */
+/* =========================================================================
+ * Created on: <Fri Mar 27 21:28:52 +01 2026> 
+ * Time-stamp: <Fri Mar 27 21:32:51 +01 2026 by owner> 
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/forkprob8.c -
+ * Problem 8.19
+ * How many lines of output does the following function print if the
+ * value of n entered by the user is 6?
+ * Answer: [[file:README.org::#problem-8-19]]
+ * ========================================================================= */
 #include "csapp.h"
 
-/* $begin forkprob8 */
 void foo(int n) {
   int i;
 
@@ -10,7 +18,6 @@ void foo(int n) {
   printf("hello\n");
   exit(0);
 }
-/* $end forkprob8 */
 
 int main(int argc, char **argv) {
   if (argc < 2) {

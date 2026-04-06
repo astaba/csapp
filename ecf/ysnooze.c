@@ -1,6 +1,12 @@
-/* Practice Problem 8.7 (solution page 834) */
-/* See README.org */
-
+/* =========================================================================
+ * Created on: <Fri Mar 27 22:36:37 +01 2026> 
+ * Time-stamp: <Fri Mar 27 23:31:39 +01 2026 by owner> 
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/ecf/ysnooze.c -
+ * Practice Problem 8.7 (solution page 834)
+ * More details: [[file:README.org::#problem-8-7]]
+ * See snooze() from: [[file:~/coding/c_prog/csapp/ecf/ywakeup.c]]
+ * ========================================================================= */
 #include "../include/csapp.h"
 
 static unsigned int snooze(unsigned int secs) {
@@ -13,7 +19,7 @@ static void handler(int sig) { return; }
 
 int main(int argc, char *argv[argc + 1]) {
   if (argc < 2 || strcmp(argv[1], "-h") == 0) {
-    fprintf(stderr, "Usage: %s time_secs\n", argv[0]);
+    fprintf(stderr, "Usage: %s <secs>\n", argv[0]);
     exit(1);
   }
 

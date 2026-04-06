@@ -1,9 +1,7 @@
-/* Figure 8.36 signal1. This program is flawed because it assumes that
- * signals are queued. */
-
+/* Figure 8.36 signal1.
+ * WARN: This program is flawed because it assumes that signals
+ * are queued. See [[file:signal2.c]]  */
 #include "../include/csapp.h"
-/* $begin signal1 */
-/* WARNING: This code is buggy! */
 
 void handler1(int sig) {
   int olderrno = errno;
@@ -29,7 +27,6 @@ int main() {
       exit(0);
     }
   }
-
   /* Model shell prompt: Parent waits for terminal input and then processes it.
    * The infinite loop models the command line processing after its input on a
    * terminal or server. */
@@ -41,4 +38,3 @@ int main() {
 
   exit(0);
 }
-/* $end signal1 */

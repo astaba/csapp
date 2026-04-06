@@ -64,6 +64,16 @@ temp/
 *.old
 *.swp
 *~
+DRAFT.*
+sandbox*
 # Emacs auto-save files
 \#*\#
 
+netp/tiny/cgi-bin/adder
+netp/echoclient
+netp/echoserveri
+netp/yechoclient
+netp/yechoserveri
+netp/tiny/tiny
+.env.c.inc
+netp/tiny/public07/constance.mp4

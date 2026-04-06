@@ -1,7 +1,7 @@
 CC = gcc
 CSAPP_INC = ../include
 CSAPP_SRC = ../src
-CFLAGS = -Wall -Og -I $(CSAPP_INC) -I . 
+CFLAGS = -Wall -Og -I $(CSAPP_INC) -I .
 LDLIBS = -lpthread
 
 PROGS = fragments.o\
@@ -67,7 +67,9 @@ PROGS = fragments.o\
 	ymyls\
 	ysystem\
 	segfault\
-	tfgets
+	tfgets\
+	sandbox\
+	signal21
 
 all: $(CSAPP_SRC)/csapp.o $(PROGS)
 
@@ -95,4 +97,3 @@ $(CSAPP_SRC)/csapp.o: $(CSAPP_SRC)/csapp.c $(CSAPP_INC)/csapp.h
 
 clean:
 	rm -f $(PROGS) *.o *~
-

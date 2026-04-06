@@ -1,6 +1,11 @@
-/* Figure 8.18 Using the waitpid function to reap zombie children in
-   no particular order. */
-
+/* =========================================================================
+ * Created on: <Fri Mar 27 16:53:26 +01 2026>
+ * Time-stamp: <Fri Mar 27 16:55:55 +01 2026 by owner>
+ * Author    : CS:APP
+ * Desc      : ~/coding/c_prog/csapp/ecf/waitpid1.c -
+ * Figure 8.18 Using the waitpid function to reap zombie children
+ * in no particular order.
+ * ========================================================================= */
 #include "../include/csapp.h"
 #define N 2
 
