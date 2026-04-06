@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background: #1e293b;
+}
+
+.navbar a {
+  color: #38bdf8;
+  text-decoration: none;
+}
+
+.container {
+  padding: 2rem;
+  max-width: 600px;
+  margin: auto;
+}
+
+input {
+  display: block;
+  margin: 1rem 0;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+button, .btn {
+  background: #38bdf8;
+  border: none;
+  padding: 0.7rem 1.2rem;
+  color: black;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0ea5e9;
+}

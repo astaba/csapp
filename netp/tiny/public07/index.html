@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youtiny Video Player</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #eee;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        video {
+            max-width: 80%;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        h1 { margin-bottom: 20px; color: #ff4b2b; }
+    </style>
+</head>
+<body>
+    <h1>Youtiny Stream</h1>
+    
+    <!-- Replace 'movie.mp4' with the actual filename in your /public folder -->
+    <video controls autoplay muted>
+        <source src="constance.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <p style="margin-top: 20px; font-size: 0.8rem; color: #888;">
+        Serving from Youtiny C-Server
+    </p>
+</body>
+</html>

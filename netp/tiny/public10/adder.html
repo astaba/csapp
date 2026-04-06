@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Adder</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <h1>Youtiny</h1>
+    <a href="/index.html">Home</a>
+  </nav>
+
+  <main class="container">
+    <h2>Add Two Numbers</h2>
+
+    <form id="adder-form" action="/cgi-bin/adder" method="GET">
+      <input type="number" name="a" placeholder="First number" required>
+      <input type="number" name="b" placeholder="Second number" required>
+
+      <button type="submit">Compute</button>
+    </form>
+
+    <p id="preview"></p>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

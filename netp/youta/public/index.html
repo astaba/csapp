@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Youtiny Server - Youtrustworthy</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    header {
+      background: #004080;
+      color: white;
+      padding: 1em;
+      text-align: center;
+    }
+    nav {
+      background: #e0e0e0;
+      padding: 0.5em;
+      text-align: center;
+    }
+    nav a {
+      margin: 0 1em;
+      text-decoration: none;
+      color: #004080;
+      font-weight: bold;
+    }
+    main {
+      padding: 2em;
+      max-width: 800px;
+      margin: auto;
+    }
+    section {
+      margin-bottom: 2em;
+    }
+    h2 {
+      color: #004080;
+    }
+    footer {
+      background: #004080;
+      color: white;
+      text-align: center;
+      padding: 1em;
+      margin-top: 2em;
+    }
+    .highlight {
+      background: #ffffcc;
+      padding: 0.5em;
+      border: 1px solid #ccc;
+    }
+    img {
+      max-width: 100%;
+      margin: 1em 0;
+      border: 2px solid #ccc;
+    }
+    button {
+      background: #004080;
+      color: white;
+      border: none;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      margin-top: 1em;
+    }
+    button:hover {
+      background: #0066cc;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Welcome to Youtiny</h1>
+    <p><em>Youtrustworthy, in memory of Youta T. Jerome</em></p>
+  </header>
+
+  <nav>
+    <a href="#about">About</a>
+    <a href="#links">Useful Links</a>
+    <a href="#gallery">Gallery</a>
+  </nav>
+
+  <main>
+    <section id="about">
+      <h2>About Youtiny</h2>
+      <p>
+        Youtiny is a lightweight, trustworthy web server built on the CS:APP Tiny framework.
+        It serves static and dynamic content with simplicity and reliability.
+      </p>
+      <div class="highlight">
+        <p>Click the button below for a surprise message:</p>
+        <button onclick="showMessage()">Click Me</button>
+        <p id="message"></p>
+      </div>
+    </section>
+
+    <section id="links">
+      <h2>Useful Links</h2>
+      <ul>
+        <li><a href="https://csapp.cs.cmu.edu/" target="_blank">CS:APP Resources</a></li>
+        <li><a href="https://www.gnu.org/software/libc/manual/html_node/index.html" target="_blank">GNU C Library Manual</a></li>
+        <li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP" target="_blank">MDN HTTP Documentation</a></li>
+      </ul>
+    </section>
+
+    <section id="gallery">
+      <h2>Gallery</h2>
+      <p>Some generated images to showcase Youtiny:</p>
+      <img src="images/youtiny_logo.png" alt="Youtiny Logo">
+      <img src="images/youtrustworthy.png" alt="Trustworthy Server Illustration">
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 Youtiny Server. All rights reserved.</p>
+  </footer>
+
+  <script>
+    function showMessage() {
+      document.getElementById("message").innerText =
+        "You can trust Youtiny to serve you reliably!";
+    }
+  </script>
+</body>
+</html>

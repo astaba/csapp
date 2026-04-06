@@ -1,37 +1,31 @@
 /* =========================================================================
- * Updated 11/2019 droh - Fixed sprintf() aliasing issue in serve_static(),
- * and clienterror().
- * Time-stamp: <Sat Apr  4 02:51:03 +01 2026 by owner>
- * Author    : CS:APP
- * Desc      : ~/coding/c_prog/csapp/netp/tiny/tiny.c -
+ * Created on: <Thu Mar 26 21:35:42 +01 2026>
+ * Time-stamp: <Fri Mar 27 14:33:43 +01 2026 by owner>
+ * Author    : owner
+ * Desc      : ~/coding/c_prog/csapp/netp/tiny/tiny06.c -
  *             tiny.c - A simple, iterative HTTP/1.0 Web server that uses
  *             the GET method to serve static and dynamic content.
+ *
+ * Problem 11.6:
+ * A. Modify Tiny so that it echoes every request line and request header.
+ * B. Use your favorite browser to make a request to Tiny for static content.
+ * Capture the output from Tiny in a file.
+ * C. Inspect the output from Tiny to determine the version of HTTP your
+ * browser uses.
+ * D. Consult the HTTP/1.1 standard in RFC 2616 to determine the meaning of
+ * each header in the HTTP request from your browser.
+ * You can obtain RFC 2616 from www.rfc-editor.org/rfc.html.
  * ========================================================================= */
-#include "../../.env.c.inc"
 #include "csapp.h"
-#include "public/error_template.c.inc"
 
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-/* INFO: Problem 11.11 part 1: add arg to check request method */
-void serve_static(int fd, char *filename, int filesize, const char *method);
-void serve_dynamic(int fd, char *filename, char *cgiargs, const char *method);
+void serve_static(int fd, char *filename, int filesize);
 void get_filetype(char *filename, char *filetype);
-void clienterror(int fd, char *cause, int errnum, char *explain);
-int unsupport_meth(const char *method); /* INFO: Problem 11.11 part 2 */
-
-static void sigchld_handler(int sig) { /* INFO: Problem 11.8 part 1 start */
-  int old_errno = errno;
-  pid_t pid;
-
-  while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
-    ;
-  if ((pid < 0) && (errno != ECHILD))
-    sio_error("Waitpid() failed");
-
-  errno = old_errno;
-}; /* INFO: Problem 11.8 part 1 end */
+void serve_dynamic(int fd, char *filename, char *cgiargs);
+void clienterror(int fd, char *cause, char *errnum, char *errwords,
+                 char *errmsg);
 
 /**
  * main - Figure 11.29: Iterative HTTP/1.0 server loop.
@@ -46,10 +40,6 @@ int main(int argc, char **argv) {
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-
-  signal(SIGPIPE, SIG_IGN);
-
-  Signal(SIGCHLD, sigchld_handler); /* INFO: Problem 11.8 part 2 */
 
   /* Check command line args */
   if (argc != 2) {
@@ -82,8 +72,9 @@ void doit(int fd) {
   int is_static;
   struct stat sbuf;
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-  char filename[MAXLINE], cgiargs[MAXLINE];
+  char filename[MAXLINE], cgiargs[MAXLINE], echo_buf[MAXLINE];
   rio_t rio;
+  int len = 0;
 
   /* Bind a socket FD to the RIO state monitor */
   Rio_readinitb(&rio, fd);
@@ -91,13 +82,31 @@ void doit(int fd) {
   if (!Rio_readlineb(&rio, buf, MAXLINE)) /* Read in request line */
     return;
   printf("%s", buf);
+  /* NOTE: Problem 11.6 ===================================================== */
+  len = snprintf(echo_buf, MAXLINE,
+                      "HTTP/1.1 200 Ok\r\n"
+                      "Content-Type: text/plain\r\n\r\n"
+                      "%s",
+                      buf);
+  /* WARN: Failing to properly update len would provoke:
+           Buffer overflow (core dump) */
+  while (strcmp(buf, "\r\n")) {
+    if (!Rio_readlineb(&rio, buf, MAXLINE))
+      return;
+    printf("%s", buf);
+    len += snprintf(echo_buf + len, MAXLINE - len, "%s", buf);
+  }
+  Rio_writen(fd, echo_buf, strlen(echo_buf));
+  return;			/* WARN: Don't send to response. */
+  /* ======================================================================== */
   /* Parse the request line into its three components */
   /* Dynamic example: "GET /cgi-bn/adder?12&18 HTTP/1.1" */
   /* Static example: "GET / HTTP/1.1" */
   sscanf(buf, "%s %s %s", method, uri, version);
   /* Validate request method */
-  if (unsupport_meth(method)) {
-    clienterror(fd, method, 501, "Tiny does not implement this method");
+  if (strcasecmp(method, "GET")) {
+    clienterror(fd, method, "501", "Not Implemented",
+                "Tiny does not implement this method");
     return;
   }
   /* Flush in request headers to update RIO state */
@@ -107,38 +116,28 @@ void doit(int fd) {
   is_static = parse_uri(uri, filename, cgiargs);
   /* OS: Check whether target exists on disk */
   if (stat(filename, &sbuf) < 0) {
-    clienterror(fd, filename, 404, "Tiny couldn't find this file");
+    clienterror(fd, filename, "404", "Not found",
+                "Tiny couldn't find this file");
     return;
   }
 
   if (is_static) { /* Serve static content */
     /* Check permission for file: usr_read + regular_file */
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
-      clienterror(fd, filename, 403, "Tiny couldn't read the file");
+      clienterror(fd, filename, "403", "Forbidden",
+                  "Tiny couldn't read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size, method);
+    serve_static(fd, filename, sbuf.st_size);
   } else { /* Serve dynamic content */
     /* Check permission for script: usr_exe + regular_file */
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
-      clienterror(fd, filename, 403, "Tiny couldn't run the CGI program");
+      clienterror(fd, filename, "403", "Forbidden",
+                  "Tiny couldn't run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs, method);
+    serve_dynamic(fd, filename, cgiargs);
   }
-}
-
-int unsupport_meth(const char *method) {
-  /* clang-format off */
-  if (!strcasecmp(method, "GET"))     return  0;
-  if (!strcasecmp(method, "HEAD"))    return  0;
-  if (!strcasecmp(method, "POST"))    return  0;
-  return -1;
-  /* if (!strcasecmp(method, "PUT"))     return -1; */
-  /* if (!strcasecmp(method, "PATCH"))   return -1; */
-  /* if (!strcasecmp(method, "DELETE"))  return -1; */
-  /* if (!strcasecmp(method, "OPTIONS")) return -1; */
-  /* clang-format on */
 }
 
 /**
@@ -147,36 +146,33 @@ int unsupport_meth(const char *method) {
  * @arg fd: Client socket FD.
  * @arg cause: The specific string/file causing the error.
  * @arg errnum: HTTP status code (e.g. "404").
- * @arg explain: Detailed error description.
+ * @arg errwords: Short human-readable status.
+ * @arg errmsg: Detailed error description.
  * @return: void.
  */
-void clienterror(int fd, char *cause, int errnum, char *explain) {
-  char errwords[MAXLINE], body[MAXBUF], response[MAXLINE];
-
-  switch (errnum) {
-    /* clang-format off */
-  case 400: strcpy(errwords, "Bad Request");     break;
-  case 403: strcpy(errwords, "Forbidden");       break;
-  case 404: strcpy(errwords, "Not Found");       break;
-  case 501: strcpy(errwords, "Not Implemented"); break;
-  default:  strcpy(errwords, "Internal error");
-    /* clang-format on */
-  }
-  /* Build body */
-  snprintf(body, MAXBUF, error_template, errnum, errwords, explain, cause);
-  /* Build response head */
-  snprintf(response, MAXLINE,
-           "HTTP/1.1 %d %s\r\n"
-           "Connection: close\r\n"
-           "Content-Length: %zu\r\n"
-           "Content-Type: text/html; charset=UTF-8\r\n"
-           "\r\n",
-           errnum, errwords, strlen(body));
+void clienterror(int fd, char *cause, char *errnum, char *errwords,
+                 char *errmsg) {
+  char buf[MAXLINE];
 
   /* Print the HTTP response headers */
-  Rio_writen(fd, response, strlen(response));
+  sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, errwords);
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "Content-type: text/html\r\n\r\n");
+  Rio_writen(fd, buf, strlen(buf));
+
   /* Print the HTTP response body */
-  Rio_writen(fd, body, strlen(body));
+  sprintf(buf, "<html><title>Tiny Error</title>");
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "<body bgcolor="
+               "ffffff"
+               ">\r\n");
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "%s: %s\r\n", errnum, errwords);
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "<p>%s: %s\r\n", errmsg, cause);
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "<hr><em>The Tiny Web server</em>\r\n");
+  Rio_writen(fd, buf, strlen(buf));
 }
 
 /**
@@ -213,19 +209,12 @@ int parse_uri(char *uri, char *filename, char *cgiargs) {
   char *ptr;
 
   if (!strstr(uri, "cgi-bin")) {
-    if (strstr(uri, "video/")) { /* INFO: Problem 11.7 part 1 start */
-      strcpy(cgiargs, "");
-      ptr = strrchr(uri, '/');
-      strcpy(filename, video_path);
-      strcat(filename, ptr);
-      return 1;
-    } /* INFO: Problem 11.7 part 1 end */
     /* Static path logic */
-    strcpy(cgiargs, "");              /* clear cgi */
-    strcpy(filename, "./public");     /* begin convert1 */
-    strcat(filename, uri);            /* end convert1 */
-    if (uri[strlen(uri) - 1] == '/')  /* slash check */
-      strcat(filename, "index.html"); /* append default */
+    strcpy(cgiargs, "");             /* clear cgi */
+    strcpy(filename, ".");           /* begin convert1 */
+    strcat(filename, uri);           /* end convert1 */
+    if (uri[strlen(uri) - 1] == '/') /* slash check */
+      strcat(filename, "home.html"); /* append default */
     return 1;
   } else {
     /* Dynamic path logic */
@@ -249,7 +238,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs) {
  * @arg filesize: Total size in bytes (from stat).
  * @return: void.
  */
-void serve_static(int fd, char *filename, int filesize, const char *method) {
+void serve_static(int fd, char *filename, int filesize) {
   int srcfd;
   char *srcp, filetype[4096], buf[MAXBUF];
 
@@ -264,16 +253,13 @@ void serve_static(int fd, char *filename, int filesize, const char *method) {
   sprintf(buf, "Content-type: %s\r\n\r\n", filetype);
   Rio_writen(fd, buf, strlen(buf));
 
-  if (!strcasecmp(method, "HEAD")) /* INFO: Problem 11.11 part 5 */
-    return;
-  /* Phase 2: malloc incurs double copy:
-    Kernel Page Cache → User buffer → Kernel network buffer */
-  srcp = Malloc(filesize); /* INFO: Problem 11.9 start */
+  /* Phase 2: Zero-copy-style Body Delivery */
   srcfd = Open(filename, O_RDONLY, 0);
-  Rio_readn(srcfd, srcp, filesize);
+  /* Map file to virtual memory: srcp points to the start of the file in RAM */
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
   Close(srcfd);
   Rio_writen(fd, srcp, filesize);
-  Free(srcp); /* INFO: Problem 11.9 end */
+  Munmap(srcp, filesize);
 }
 
 /**
@@ -284,41 +270,16 @@ void serve_static(int fd, char *filename, int filesize, const char *method) {
  * @return: void.
  */
 void get_filetype(char *filename, char *filetype) {
-  char *last_dot = strrchr(filename, '.');
-  /* Default to binary stream if no extension is found */
-  if (!last_dot) {
-    strcpy(filetype, "application/octet-stream");
-    return;
-  }
-  /* clang-format off */
-  /* INFO: Problem 11.7 part 2: Video Formats */
-  if      (!strcmp(last_dot, ".mp4"))  strcpy(filetype, "video/mp4");
-  else if (!strcmp(last_dot, ".webm")) strcpy(filetype, "video/webm");
-  else if (!strcmp(last_dot, ".ogv"))  strcpy(filetype, "video/ogg");
-  else if (!strcmp(last_dot, ".mov"))  strcpy(filetype, "video/quicktime");
-  /* Audio Formats (Bonus) */
-  else if (!strcmp(last_dot, ".mp3"))  strcpy(filetype, "audio/mpeg");
-  else if (!strcmp(last_dot, ".wav"))  strcpy(filetype, "audio/wav");
-  /* Text & Code */
-  else if (!strcmp(last_dot, ".html")) strcpy(filetype, "text/html");
-  else if (!strcmp(last_dot, ".htm"))  strcpy(filetype, "text/html");
-  else if (!strcmp(last_dot, ".css"))  strcpy(filetype, "text/css");
-  else if (!strcmp(last_dot, ".js"))   strcpy(filetype, "application/javascript");
-  else if (!strcmp(last_dot, ".json")) strcpy(filetype, "application/json");
-  else if (!strcmp(last_dot, ".txt"))  strcpy(filetype, "text/plain");
-  /* Images */
-  else if (!strcmp(last_dot, ".jpg"))  strcpy(filetype, "image/jpeg");
-  else if (!strcmp(last_dot, ".jpeg")) strcpy(filetype, "image/jpeg");
-  else if (!strcmp(last_dot, ".png"))  strcpy(filetype, "image/png");
-  else if (!strcmp(last_dot, ".gif"))  strcpy(filetype, "image/gif");
-  else if (!strcmp(last_dot, ".ico"))  strcpy(filetype, "image/x-icon");
-  else if (!strcmp(last_dot, ".svg"))  strcpy(filetype, "image/svg+xml");
-  /* Documents */
-  else if (!strcmp(last_dot, ".pdf"))  strcpy(filetype, "application/pdf");
-  else if (!strcmp(last_dot, ".xml"))  strcpy(filetype, "application/xml");
-  /* Fallback for unrecognized extensions */
-  else                                 strcpy(filetype, "application/octet-stream");
-  /* clang-format on */
+  if (strstr(filename, ".html"))
+    strcpy(filetype, "text/html");
+  else if (strstr(filename, ".gif"))
+    strcpy(filetype, "image/gif");
+  else if (strstr(filename, ".png"))
+    strcpy(filetype, "image/png");
+  else if (strstr(filename, ".jpg"))
+    strcpy(filetype, "image/jpeg");
+  else
+    strcpy(filetype, "text/plain");
 }
 
 /**
@@ -331,7 +292,7 @@ void get_filetype(char *filename, char *filetype) {
  * @arg cgiargs: Parameters passed via the URI.
  * @return: void.
  */
-void serve_dynamic(int fd, char *filename, char *cgiargs, const char *method) {
+void serve_dynamic(int fd, char *filename, char *cgiargs) {
   char buf[MAXLINE], *emptylist[] = {NULL};
 
   /* Return first part of HTTP response */
@@ -343,12 +304,11 @@ void serve_dynamic(int fd, char *filename, char *cgiargs, const char *method) {
   if (Fork() == 0) { /* Child */
     /* Real server would set all CGI vars here */
     setenv("QUERY_STRING", cgiargs, 1);
-    setenv("REQUEST_METHOD", method, 1); /* INFO: Problem 11.11 part */
     Dup2(fd, STDOUT_FILENO);
     /* Redirect stdout to client */
     Execve(filename, emptylist, environ);
     /* Run CGI program */
   }
-  /* Wait(NULL);  INFO: Problem 11.8 part 3 */
-  /* Parent don't wait but reaps child in signal handler. */
+  Wait(NULL);
+  /* Parent waits for and reaps child */
 }

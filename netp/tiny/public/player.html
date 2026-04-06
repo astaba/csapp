@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Video Gallery — Tiny Server</title>
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+
+  <body>
+    <nav class="navbar" role="navigation" aria-label="Main">
+      <div class="brand">Tiny Server</div>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="javascript:void(0)">Video</a></li>
+        <li><a href="/adder.html">Adder</a></li>
+      </ul>
+    </nav>
+
+    <main class="container">
+      <section class="hero">
+        <h1>Video Player</h1>
+        <p class="lead">Gallery of videos found under the server's video/ folder. Click a tile to load it into the
+          player. Keyboard: Space play/pause, ←/→ seek, ↑/↓ volume, F fullscreen.</p>
+
+        <div class="video-card">
+          <div class="video-inner">
+            <video id="player" controls preload="metadata" playsinline class="player-video">
+              <source id="player-source" src="" type="">
+              <p>Your browser does not support the HTML5 Video element.</p>
+            </video>
+
+            <div class="controls-row">
+              <div class="res">Resolution: <span id="res">—</span></div>
+              <div class="controls-actions">
+                <a id="download" class="btn ghost" href="#" download>Download</a>
+                <button id="pip" class="btn ghost" type="button">Picture-in-Picture</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="gallery-title">Gallery</h2>
+        <div id="gallery" class="grid" aria-live="polite">
+          <!-- populated by JS -->
+        </div>
+        <div id="gallery-empty" class="gallery-empty">No videos found in the /video/ folder.</div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <small>CS:APP — Tiny server demo</small>
+    </footer>
+
+    <script src="./js/player.js" defer></script>
+  </body>
+
+</html>

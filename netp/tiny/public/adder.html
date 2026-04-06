@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adder — Tiny Server</title>
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+
+  <body>
+    <nav class="navbar" role="navigation" aria-label="Main">
+      <div class="brand">Tiny Server</div>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/player.html">Video</a></li>
+        <li><a href="javascript:void(0)">Adder</a></li>
+      </ul>
+    </nav>
+
+    <main class="container">
+      <section class="hero">
+        <h1>Adder</h1>
+        <p class="lead">Enter two integers and submit. The form uses GET and targets the backend endpoint
+          /cgi-gin/adder?a=&amp;b= for server-side addition.</p>
+	<!-- WARN: Make input "name" match exactly Backend CGI expectations. -->
+        <form id="adder-form" action="/cgi-bin/adder" method="GET"  novalidate>
+          <div class="video-card" style="padding:1rem; max-width:400px; margin:auto;">
+            <div class="video-inner" style="gap:0.75rem;">
+              <label for="a">First integer (a)</label>
+              <input id="a" name="a" type="number" inputmode="numeric" autocomplete="off" required />
+
+              <label for="b">Second integer (b)</label>
+              <input id="b" name="b" type="number" inputmode="numeric" autocomplete="off" required />
+
+              <div id="form-error" class="gallery-empty" aria-live="polite" style="display:none"></div>
+
+              <div class="cta" style="margin-top:0.5rem;">
+                <button type="submit" class="btn">Add</button>
+                <a class="btn ghost" href="/">Back Home</a>
+              </div>
+            </div>
+          </div>
+        </form>
+	<p>Result: <strong id="result"></strong></p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <small>CS:APP — Tiny server demo</small>
+    </footer>
+
+    <script src="/js/adder.js" defer></script>
+  </body>
+
+</html>

@@ -1,26 +1,18 @@
-.PHONY: all cgi clean
+.PHONY: all clean cgi
 CC = gcc
 CFLAGS = -O2 -Wall -I .
+
 # This flag includes the Pthreads library on a Linux box.
 # Others systems will probably require something different.
 LDLIBS += -lpthread
 
-PROG =	tiny\
-	tiny06\
-	tiny07\
-	tiny08\
-	tiny09\
-	tiny10\
-	tiny12
+all: ytiny cgi
 
-all: $(PROG)
-
-$(PROG): %: %.c csapp.o cgi
-	$(CC) $(CFLAGS) -o $@ $< csapp.o $(LDLIBS)
+ytiny: ycsapp.o
 
 cgi:
 	$(MAKE) -C cgi-bin
 
 clean:
-	rm -f *.o $(PROG) *~
+	rm -rf *.o ytiny *~
 	$(MAKE) -C cgi-bin clean

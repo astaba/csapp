@@ -3,30 +3,29 @@
 #+DESCRIPTION: CSAPP Chapter 11
 #+STARTUP: showeverything
 
-* Table of Contents :toc_3:
+* Table of Contents                                                   :toc_2:
 - [[#3-the-global-ip-internet][3. The Global IP Internet]]
   - [[#31-ip-addresses][3.1 IP Addresses]]
-    - [[#problem-112][Problem 11.2]]
-    - [[#problem-113][Problem 11.3]]
   - [[#32-internet-domain-names][3.2 Internet Domain Names]]
   - [[#33-internet-connections][3.3 Internet Connections]]
 - [[#4-the-sockets-interface][4. The Sockets Interface]]
   - [[#47-host-and-service-conversion][4.7 Host and Service Conversion]]
-    - [[#practice-problem-114][Practice Problem 11.4]]
   - [[#48-helper-functions-for-the-sockets-interface][4.8 Helper Functions for the Sockets Interface]]
-    - [[#my-yopen_clientfd-function][My =yopen_clientfd= Function]]
-    - [[#my-yopen_listenfd-function][My =yopen_listenfd= Function]]
-    - [[#walking-getaddrinfo-list-while-arg1-is-null][Walking =getaddrinfo= list while arg1 is =NULL=]]
   - [[#rio-library-for-robust-io][RIO Library for Robust I/O]]
-    - [[#bartender-analogy][Bartender Analogy]]
-    - [[#rio-library-walk-through][RIO Library walk-through]]
   - [[#van-winkles-honpwc-vs-csapprio][Van Winkle’s HONPWC vs CSAPP(RIO)]]
   - [[#49-example-echo-client-and-the-iterative-server][4.9 Example Echo Client and the Iterative Server]]
-    - [[#purpose-in-echo-client-figure-1120][Purpose in Echo Client (Figure 11.20)]]
-    - [[#purpose-of-echo-server-and-its-echo-io-loop][Purpose of Echo Server and its Echo IO-Loop]]
 - [[#5-web-servers][5. Web Servers]]
   - [[#54-serving-dynamic-content][5.4 Serving Dynamic Content]]
-    - [[#practice-problem-115-solution-page-1005][Practice Problem 11.5 (solution page 1005)]]
+- [[#6-putting-it-together-youtiny-server][6. Putting it Together: Youtiny Server]]
+  - [[#a-tiny-massive-mistake][A tiny massive mistake]]
+  - [[#analysis-of-broken-pipe-epipe-in-youtiny-server][Analysis of “Broken Pipe” (EPIPE) in Youtiny Server]]
+- [[#homework-problems][Homework Problems]]
+  - [[#problem-116][Problem 11.6]]
+  - [[#problem-118][Problem 11.8]]
+  - [[#problem-119][Problem 11.9]]
+  - [[#problem-1110][Problem 11.10]]
+  - [[#problem-1111][Problem 11.11]]
+  - [[#problem-1112][Problem 11.12]]
 
 * 3. The Global IP Internet
 ** 3.1 IP Addresses
@@ -41,7 +40,7 @@ network byte order and storing in the =struct=, the IP address can be
 directely send to =inet_pton()= and =inet_ntop()= for conversion
 between ‘IP Address hexadecimal’ and ‘dotted-decimal notation’.
 
-*** Problem 11.2
+*** Practice Problem 11.2
 Write a program "hex2dd.c" that converts its 32-bit hex argument to a
 32-bit network byte order and print the result in dotted-decimal
 notation. For example:
@@ -51,9 +50,10 @@ linux> ./hex2dd 0x6BD4601D
 107.212.96.29
 #+end_src
 
-[[file:hex2dd.c][hex2dd.c]].
+**** Answer
+Reference: [[file:~/coding/c_prog/csapp/netp/hex2dd.c][Problem 11.2 hex2dd]].
 
-*** Problem 11.3
+*** Practice Problem 11.3
 Write a program that takes a dotted-decimal notation string and
 convert it to hexadecimal IP Address. For example:
 
@@ -62,7 +62,8 @@ linux> ./dd2hex 128.2.194.242
 0x8002c2f2
 #+end_src
 
-[[file:dd2hex.c::int main(int argc, char *argv\[argc + 1\]) {][dd2hex.c]].
+**** Answer
+Reference: [[file:~/coding/c_prog/csapp/netp/dd2hex.c][Problem 11.3 dd2hex]].
 
 ** 3.2 Internet Domain Names
 Using the shell utility =nslookup <domain name>=, you can make a DNS
@@ -108,19 +109,21 @@ The =getaddrinfo= and =getnameinfo= functions subsume the
 functionality of =inet_pton= and =inet_ntop=, respectively, and they
 provide a higher-level of abstraction that is independent of any
 particular address format. To convince yourself how handy this is,
-write a version of hostinfo (Figure 11.17) that uses =inet_ntop=
-instead of =getnameinfo= to convert each socket address to a
-dotted-decimal address string.
+write a version of hostinfo ([[file:~/coding/c_prog/csapp/netp/yhostinfo.c][Figure 11.17 yhostinfo]]) that uses
+=inet_ntop= instead of =getnameinfo= to convert each socket address to
+a dotted-decimal address string.
 
-[[file:yhostinfo-ntop.c][yhostinfo-ntop.c]].
+**** Answer
+Reference: [[file:~/coding/c_prog/csapp/netp/yhostinfo-ntop.c][Problem 11.4 yhostinfo-ntop]].
 
+**** Explanations
 Your implementation is spot on. You've correctly navigated the "pointer
 soup" that usually trips up students in Chapter 11.
 
 The interplay you're asking about is essentially a *memory overlay*
 trick. Here is the assessment of that byte layout:
 
-**** 1. The Generic Wrapper (=struct sockaddr=)
+***** 1. The Generic Wrapper (=struct sockaddr=)
 The field =addr->ai_addr= is a pointer to a =struct sockaddr=. This is a
 "one-size-fits-all" header (16 bytes) that the kernel uses to handle any
 protocol (IPv4, IPv6, Bluetooth, etc.). It only contains:
@@ -128,7 +131,7 @@ protocol (IPv4, IPv6, Bluetooth, etc.). It only contains:
 - *sa_family*: 2 bytes (tells the kernel how to interpret the rest).
 - *sa_data*: 14 bytes of raw address data.
 
-**** 2. The IPv4 Specialist (=struct sockaddr_in=)
+***** 2. The IPv4 Specialist (=struct sockaddr_in=)
 When =hints.ai_family = AF_INET=, the kernel actually allocates a
 =struct sockaddr_in= behind the scenes. Your cast
 =(struct sockaddr_in *)addr->ai_addr= tells the compiler: "Stop looking
@@ -139,7 +142,7 @@ structure."
 - *sin_addr*: 4 bytes (This is the *=struct in_addr=*).
 - *sin_zero*: 8 bytes (Padding to match the 16-byte total).
 
-**** 3. The =inet_ntop= Hand-off
+***** 3. The =inet_ntop= Hand-off
 =inet_ntop= (Network To Printable) doesn't want the whole 16-byte
 structure; it only wants the 4-byte IP payload.
 
@@ -149,7 +152,7 @@ structure; it only wants the 4-byte IP payload.
 - =inet_ntop= then reads those 4 bytes in *Network Byte Order*
   (Big-Endian) and converts them into the string in your =buf=.
 
-**** Summary of the Flow
+***** Summary of the Flow
 =addr->ai_addr= (Generic) \(\xrightarrow{cast}\) =sockp= (Structured)
 \(\xrightarrow{\&}\) =sin_addr= (Raw 4-byte IP).
 
@@ -346,7 +349,7 @@ time* until it sees a newline (='\n'=) or hits the buffer limit.
   - Line ends at ='\n'= or EOF.
   - Efficient reuse of internal buffer.
 
-** Van Winkle’s HONPWC vs CSAPP(RIO) :noexport@1:
+** Van Winkle’s HONPWC vs CSAPP(RIO)                            :noexport@1:
 *Lewis Van Winkkle’s "Hands-On Network Programming with C" (HONPWC)
 blocking =send()=/=recv()= approach is simpler and efficient for bulk
 transfers, but CSAPP's RIO library adds robustness and efficiency when
@@ -359,7 +362,7 @@ From HONPWC Chapter3: [[file:~/coding/c_prog/networking/ch03-in-depth-tcp-connec
 *** 🔑 Key Differences
 
 | Aspect                       | HONPWC (blocking =send=/=recv=)                                                                   | CSAPP RIO (robust I/O)                                                                                       |
-| <20>                         | <20>                                                                                              | <20>                                                                                                         |
+|                              | <20>                                                                                              | <20>                                                                                                         |
 |------------------------------+---------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------|
 | *System calls*               | Each call directly hits the kernel. If =recv()= returns fewer bytes, you must handle it manually. | Wraps =read()=/=write()= in loops to guarantee full transfer. Buffered version reduces syscalls by batching. |
 | *Simplicity*                 | Very straightforward: one =send()= or =recv()= per message. Easy to learn and implement.          | More complex API (=rio_readn=, =rio_writen=, =rio_readlineb=) but hides tricky edge cases.                   |
@@ -407,8 +410,13 @@ CSAPP's RIO library is more robust and efficient for interactive,
 line-oriented, or small-message protocols.*
 
 ** 4.9 Example Echo Client and the Iterative Server
-*** Purpose in Echo Client (Figure 11.20)
-Ref: [[file:echoclient.c]]\\
+*** Purpose of Echo Client
+:PROPERTIES:
+:CUSTOM_ID: purpose-of-echo-client
+:END:
+
+- Reference: [[file:~/coding/c_prog/csapp/netp/echoclient.c][Figure 11.20 echoclient]].
+
 In the echo client, you want to: - Send a request string to the
 server. - Read back the echoed response reliably.
 
@@ -421,7 +429,12 @@ complete. That's why they're relevant: they make the echo client robust
 against partial reads/writes and interruptions.
 
 *** Purpose of Echo Server and its Echo IO-Loop
-Ref: [[file:echoserveri.c]], [[file:echo.c]]\\
+:PROPERTIES:
+:CUSTOM_ID: purpose-of-echo-server
+:END:
+
+References: [[file:~/coding/c_prog/csapp/netp/echoserveri.c][Figure 11.21 echoserveri]], [[file:~/coding/c_prog/csapp/netp/echo.c][Figure 11.22 echo]].
+
 *Questions:*
 - Why explicit close of =connfd= but not =listenfd=?
 - This server is unable to accept another connection while one is in
@@ -481,13 +494,16 @@ simplicity, then later shows concurrent versions.
 
 * 5. Web Servers
 ** 5.4 Serving Dynamic Content
-[[file:./tiny/cgi-bin/adder.c]].
-
 *** Practice Problem 11.5 (solution page 1005)
+:PROPERTIES:
+:CUSTOM_ID: problem-11-5
+:END:
 Assume that a CGI program needs to send dynamic content to the
 client. This is typically done by making the CGI program send its
 content to the standard output.  Explain how this content is sent to
 the client.
+
+- Reference: [[file:tiny/cgi-bin/adder.c][Figure 11.27 Problem 11.5 adder]].
 
 **** Answer
 After the server identifies a *Common-Gateway-Interface* (CGI)
@@ -502,3 +518,467 @@ process. Inside the child:
    standard output is now redirected to the socket, the dynamic
    content is sent directly to the client via the kernel's network
    stack.
+
+* 6. Putting it Together: Youtiny Server
+[[file:~/coding/c_prog/csapp/netp/youta/ytiny.c]].
+
+** A tiny massive mistake
+While coding the Youtiny server a massive mistake slipped in.  In the
+~server_static()~ and ~serve_dynamic()~ functions, instead of defining
+the size of the write as precisely as possible with ~strlen()~, it was
+mistakenly defined with ~sizeof()~ therefore indicating the size of
+the whole buffer.  As a result, massive amount of garbage bytes
+(mostly ~NULL~) are sent in the headers to the browser.
+
+** Analysis of “Broken Pipe” (EPIPE) in Youtiny Server
+
+The ~EPIPE~ error you saw in Eshell is the result of a specific
+sequence of events between the server's write operations and the
+client's socket state.
+
+*** The Origin: yio_writen
+In the ~serve_static~ or ~serve_dynamic~ functions, ther is a sequence
+like this:
+
+#+begin_src C
+/* Send response headers */
+yio_writen(fd, header_buf, strlen(header_buf)); 
+
+/* WARN: Send response body (The "Fatal" Write) */
+yio_writen(fd, body_buf, body_size); 
+#+end_src
+
+If the client closes the connection before the second call, the kernel
+sends ~SIGPIPE~. If the signal is not handled, that second
+~yio_writen~ returns ~-1~ and sets ~errno~ to ~EPIPE~.
+
+*** Why it wasn't ~accept()~
+
+The ~accept()~ call handles the arrival of new connections. If a
+connection is queued in the listen backlog and the client disappears
+before you call ~accept()~, ~accept()~ might return an error (like
+~ECONNABORTED~), but it will never cause a ~SIGPIPE~. ~SIGPIPE~ is
+strictly reserved for writing to a "broken pipe" (a socket with no
+reader).
+
+*** How to fix it (The Robust Way)
+
+To prevent Youtiny server from crashing every time a user refreshes
+their browser too quickly, the ~main()~ function could be amended as
+follow:
+
+#+begin_src C
+#include <signal.h>
+
+int main(int argc, char **argv) {
+    // ... other initializations ...
+
+    /* * Ignore SIGPIPE so the server doesn't terminate 
+     * when a client closes a connection prematurely.
+     */
+    signal(SIGPIPE, SIG_IGN);
+
+    // ... the accept() loop ...
+}
+#+end_src>
+
+
+*** Handling the Error in ~yio_writen~
+
+Once ~SIGPIPE~ is ignored, ~yio_writen~ wrapper will finally be able
+to see the ~-1~ return value. Make sure the wrapper doesn't just exit
+on error, but rather returns the error so the server can close the
+file descriptor and move on to the next ~accept()~.
+
+#+begin_src C
+// Inside your request handling logic:
+if (yio_writen(connfd, buf, n) < 0) {
+    if (errno == EPIPE) {
+        fprintf(stderr, "Client closed connection prematurely (Broken pipe)\n");
+    } else {
+        perror("yio_writen error");
+    }
+    // Clean up and exit the handler thread/process, but don't crash the server!
+    close(connfd);
+    return;
+}
+#+end_src>
+
+* Homework Problems
+** Problem 11.6
+1. Modify Tiny so that it echoes every request line and request header.
+2. Use your favorite browser to make a request to Tiny for static
+   content. Capture the output from Tiny in a file.
+3. Inspect the output from Tiny to determine the version of HTTP your
+   browser uses.
+4. Consult the HTTP/1.1 standard in RFC 2616 to determine the meaning of
+each header in the HTTP request from your browser. You can obtain RFC
+2616 from [[https://www.rfc-editor.org/rfc.html]].
+
+*** Answer 1
+Although TINY server is already making a “debug” echo to the server
+terminal this question asks to produce that “debug” echo back to the
+browser screen.  This way, the client may have a clear feedback of the
+request it just sent.
+
+Reference: [[file:tiny/tiny06.c][Problem 11.6 tiny06]].
+
+**** Code snippet
+In the routine handling the TCP transaction and right after reading
+the *request-line*, insert this:
+
+#+begin_src C
+  /* Build minimal response headers: append request-line echo */
+  len = snprintf(echo_buf, MAXLINE,
+                 "HTTP/1.1 200 Ok\r\n"
+                 "Content-Type: text/plain\r\n\r\n"
+                 "%s", buf);
+  /* Append request-headers echo */
+  while (strcmp(buf, "\r\n")) {
+    Rio_readlineb(&rio, buf, MAXLINE);
+    printf("%s", buf);
+    /* WARN: Properly update maxlen to avoid: Buffer overflow (core dump) */
+    len += snprintf(echo_buf + len, MAXLINE - len, "%s", buf);
+  }
+  /* Send response */
+  Rio_writen(fd, echo_buf, strlen(echo_buf));
+  return;
+#+end_src
+
+Notice the last ~return~: Don't confuse the client by sending multiple
+responses.
+
+**** Browser test: noisy
+When testing a conventional browser you could see multiple connections
+in the browser terminal
+
+#+begin_example
+Accepted connection from (localhost, 60308)  → GET /
+Accepted connection from (localhost, 37434)  → GET /favicon.ico
+Accepted connection from (localhost, 37444)  → GET /.well-known/...
+#+end_example
+
+while only the first connection request is echoed in the browser screen.
+
+Don't be confused, the TINY server echoed back all connection requests
+(check the “Network” tab in the “DevTools” on the browser) but the
+browser only renders the response to “/” URI. All other responses are
+ignored by the browser since not conform to its expectations.
+
+**** Test with =curl=: no noise
+To have a clean view the echoes send back by the TINY server try this:
+
+=curl -v http://localhost:8080/=
+and this:
+=curl -v http://localhost:8080/favicon.ico=
+
+*** Answer 2 and 3
+[[file:~/coding/c_prog/csapp/netp/localhost.pdf][localhost.pdf]].
+
+*** Anwser 4
+[[https://www.rfc-editor.org/rfc/rfc2616.html#section-14]].
+
+** Problem 11.8
+Modify Tiny so that it reaps CGI children inside a SIGCHLD handler
+instead of explicitly waiting for them to terminate.
+
+*** Answer
+Reference: [[file:tiny/tiny08.c::static void sigchld_handler(int sig) {][Problem 11.8 tiny08]].
+
+*** Explanations
+Reference: [[file:~/coding/c_prog/csapp/ecf/README.org::#sigchld-for-production-grade-server][SIGCHLD for production grade server]].
+
+** Problem 11.9
+:PROPERTIES:
+:CUSTOM_ID: problem-11-9
+:END:
+Modify Tiny so that when it serves static content, it copies the
+requested file to the connected descriptor using malloc, ~rio_readn~,
+and ~rio_writen~, instead of ~mmap~ and ~rio_writen~.
+
+*** Answer
+Reference: [[file:tiny/tiny09.c::void serve_static(int fd, char *filename, int filesize) {][Problem 11.9 tiny09]].
+
+*** Mmap vs. Malloc                                           :mmap:malloc:
+**** The ~malloc~ Path (The "Double Copy")
+When you use ~malloc~ and ~Rio_readn~, the following happens:
+1. *Disk to Kernel Space*: The kernel reads the file from disk into
+   the /Kernel Page Cache/.
+2. *Kernel to User Space*: The CPU physically copies those bytes from
+   the Kernel's memory into your ~malloc~'d buffer in ~ytiny~'s
+   memory.
+3. *User to Kernel (Socket) Space*: When you call ~Rio_writen~, the
+   CPU copies those bytes back into the kernel's socket
+   buffer.
+   - *Penalty*: Two context switches and two physical memory-to-memory
+     copies by the CPU.
+
+Data path of the ~read()/write()~ incurred by ~malloc()~:
+#+begin_example
+Disk| (page cache) ─copy─▶ (user buffer) ─copy─▶ (socket buffer) |Network
+#+end_example
+
+**** The ~mmap~ Path (The "Zero-Copy" Style)
+When you use mmap:
+1. *Mapping*: The kernel simply points your process's virtual address
+   space at the /Kernel Page Cache/ where the file lives. No data is
+   copied yet.
+2. *DMA Transfer*: When you call ~Rio_writen~, the kernel takes the
+   data directly from its own cache and pushes it to the network card
+   (often via DMA).
+   - *Benefit*: The data never actually enters "User Space." The CPU
+     never has to move the bytes; the hardware handles the
+     transfer. This is why it's lauded as "better"—it saves CPU cycles
+     and memory bandwidth.
+
+Data path:
+#+begin_example
+Disk| (page cache) ──(user space view)─▶ ─copy─▶ (socket buffer) |Network
+#+end_example
+
+**** 🚀 Even better than mmap: ~sendfile()~
+Modern servers don’t even use mmap for this. They use:
+
+#+begin_src C
+  sendfile(connfd, srcfd, NULL, filesize);
+#+end_src
+
+Data path:
+#+begin_example
+Disk| (page cache) ─hardware transfer─▶ (socket buffer) |Network
+#+end_example
+
+**** Why 11.9 is a useful exercise
+Even though ~mmap~ is faster, the ~malloc~ approach is more robust for
+a basic server:
+
+- *Small Files*: For tiny files, the overhead of setting up an ~mmap~
+  page table entry can actually be slower than a quick malloc.
+- *File Truncation*: If another process shrinks the file while you are
+  ~mmap~'d to it, your server will receive a ~SIGBUS~ and
+  crash. ~malloc~ is safer because once you've read the bytes, they
+  are "yours."
+
+** Problem 11.10
+:PROPERTIES:
+:CUSTOM_ID: problem-11-10
+:END:
+1. Write an HTML form for the CGI adder function in [[file:tiny/cgi-bin/adder.c][Figure 11.27
+   Problem 11.10 adder]]. Your form should include two text boxes that
+   users fill in with the two numbers to be added together. Your form
+   should request content using the GET method.
+2. Check your work by using a real browser to request the form from
+   Tiny, submit the filled-in form to Tiny, and then display the
+   dynamic content generated by adder.
+
+*** Answer
+References: [[file:tiny/public/adder.html::<form id="adder-form" action="/cgi-bin/adder" method="get" novalidate>][Problem 11.10 adder GET form]].
+
+
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+Client closed connection prematurely (Broken pipe)
+interrupt
+
+** Problem 11.11
+Extend Tiny to support the HTTP HEAD method. Check your work using
+=telnet= as a Web client.
+
+*** Answer
+A HEAD request asks for the same response as a GET request without the
+~body~. The main modifications to implement it are:
+
+1. Pass the request ~method~ down to the “service” routines
+   ~serve_static~ and ~serve_dynamic~. Right after sending the
+   response headers, if the method is ~HEAD~ return from
+   ~serve_static~. For ~serve_dynamic~ to pass the ~method~ down to
+   the CGI spawned form its child process, set a new CGI environment
+   variable:
+   #+begin_src C
+     setenv("REQUEST_METHOD", method, 1);
+   #+end_src
+2. In the CGI apllication code, proceed as in the ~serve_static~
+   routine.
+
+References: [[file:tiny/tiny.c::/* INFO: Problem 11.11 part 1: add arg to check request method */][Problem 11.11 tiny]], [[file:tiny/cgi-bin/adder.c::method = getenv("REQUEST_METHOD"); /* INFO: Problem 11.11 */][Problem 11.11 adder]].
+
+*** Test
+Run =telnet localhost 8080=. Then use the line-based connection to
+craft all lines for the request.
+
+** Problem 11.12
+Extend Tiny so that it serves dynamic content requested by the HTTP
+POST method. Check your work using your favorite Web browser.
+
+*** Sending JSON String with cJSON Library
+The core idea is:
+
+A nested object = *create object → attach it to parent*
+
+**** ✅ Example: nested JSON you want
+
+1. Let's build this:
+#+begin_src json
+{
+  "status": "success",
+  "data": {
+    "user": {
+      "id": 101,
+      "name": "XAMPP Server"
+    },
+    "vote": {
+      "color": "green"
+    }
+  }
+}
+#+end_src
+
+2. cJSON implementation
+#+begin_src C
+#include <stdio.h>
+#include <stdlib.h>
+#include "cJSON.h"
+
+void create_json() {
+    // Root object
+    cJSON *root = cJSON_CreateObject();
+
+    // "status": "success"
+    cJSON_AddStringToObject(root, "status", "success");
+
+    // "data": { ... }
+    cJSON *data = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "data", data);
+
+    // --- user object ---
+    cJSON *user = cJSON_CreateObject();
+    cJSON_AddNumberToObject(user, "id", 101);
+    cJSON_AddStringToObject(user, "name", "XAMPP Server");
+
+    // attach user to data
+    cJSON_AddItemToObject(data, "user", user);
+
+    // --- vote object ---
+    cJSON *vote = cJSON_CreateObject();
+    cJSON_AddStringToObject(vote, "color", "green");
+
+    // attach vote to data
+    cJSON_AddItemToObject(data, "vote", vote);
+
+    // Print JSON
+    char *json_str = cJSON_Print(root);
+    printf("%s\n", json_str);
+
+    // Cleanup
+    free(json_str);
+    cJSON_Delete(root);
+}
+#+end_src
+
+**** 🔑 The 2 essential functions
+1. Create object
+#+begin_src C
+  cJSON *obj = cJSON_CreateObject();
+#+end_src
+
+2. Attach object
+#+begin_src C
+cJSON_AddItemToObject(parent, "key", child);
+#+end_src
+
+**** ⚠️ Subtle but important rule
+When you do:
+#+begin_src C
+cJSON_AddItemToObject(parent, "key", child);
+#+end_src
+
+👉 *Ownership transfers to parent.* So, ❌ Do NOT free =child=
+manually ✔️ Only call:
+
+#+begin_src C
+cJSON_Delete(root);
+#+end_src
+
+**** 🧪 Bonus: arrays (you'll need this soon)
+Example:
+
+#+begin_src json
+{
+  "votes": ["green", "yellow", "gray"]
+}
+#+end_src
+
+***** Code:
+#+begin_src C
+cJSON *votes = cJSON_CreateArray();
+
+cJSON_AddItemToArray(votes, cJSON_CreateString("green"));
+cJSON_AddItemToArray(votes, cJSON_CreateString("yellow"));
+cJSON_AddItemToArray(votes, cJSON_CreateString("gray"));
+
+cJSON_AddItemToObject(root, "votes", votes);
+#+end_src
+*** From C socket to Javascript ~Response~ object
+- *Question*: /Is it possible to use the cJSON library to knit from
+  the CGI application the Javascript Response object?/
+
+- *Answer*: *No, you cannot knit a JavaScript object in C.* The
+  ~Response~ object in JavaScript in a *browser-side wrapper*. When a
+  C program sends text over a socket, it is just sending “raw
+  bytes”. The browser receives those bytes, sees the ~Content-Type:
+  application/json~ header, and then *constructs* that fancy
+  JavaScript ~Response~ object around the data sent.
+
+When you write to the file descriptor ~connfd~ in C, you are sending a
+stream of ASCII text. The browser's ~fetch()~ engine is a state
+machine that parses this text into the object you interact with.
+
+**** The HTTP Anatomy
+The ~serve_dynamic~ and CGI are “knitting” this:
+
+#+begin_example
+HTTP/1.0 200 OK   <-- Becomes response.status (200) and response.ok (true)
+Server: Tiny Web Server           <-- Becomes an entry in response.headers
+Content-Type: application/json    <-- Tells fetch() how to treat the body
+
+{"status": "success"}             <-- The "Payload" (The Raw Body)
+#+end_example
+
+****  The JavaScript "Response" Wrapper
+When you call ~const response = await fetch(...)~, the browser has
+already parsed the headers.
+- ~response.status~: The browser saw ~200 OK~ in your C string.
+- ~response.headers~: The browser turned your ~Server: Tiny~ string
+  into a Map-like object.
+- ~response.json()~: This is a *method* that takes the "Payload" (the
+  raw string from ~cJSON_Print~) and runs ~JSON.parse()~ on it.
+
+**** Practical tips
+If you want to see the raw "knitting" before the browser hides it
+inside that fancy object, use =curl -v
+http://localhost:8080/cgi-bin/register.cgi=. The ~-v~ (verbose) flag
+will show you the exact strings your C code is pushing into the
+socket, which is much easier to debug than the abstraction of a
+JavaScript ~Response~ object!
+
+Great --- this is where *cJSON starts to feel like building a tree
+manually*, which fits your systems mindset perfectly.
+

@@ -1,6 +1,6 @@
 /* =========================================================================
  * Created on: <Fri Mar 13 14:43:33 +00 2026>
- * Time-stamp: <Mon Mar 16 12:26:42 +00 2026 by owner>
+ * Time-stamp: <Sat Mar 21 18:19:09 +00 2026 by owner>
  * Author    : Astar Bahouidi
  * Desc      : Practice sandbox for CS:APP custom library.
  * ========================================================================= */
@@ -132,10 +132,10 @@ void yio_readinitb(rio_t *rp, int fd) {
 
 /**
  * yio_readnb - Youtrustly read exactly n bytes into usrbuf (buffered).
- *   @rp: YIO buffer state (keg).
- *   @usrbuf: user buffer (mug).
- *   @n: capacity of usrbuf (how many bytes to fill).
- *   Role: buffered counterpart to rio_readn, uses yio_read internally.
+ * Role: buffered counterpart to rio_readn, uses yio_read internally.
+ * @rp: YIO buffer state (keg).
+ * @usrbuf: user buffer (mug).
+ * @n: capacity of usrbuf (how many bytes to fill).
  */
 ssize_t yio_readnb(rio_t *rp, void *usrbuf, size_t n) {
   size_t nleft = n;
