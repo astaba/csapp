@@ -1,10 +1,11 @@
 /* =========================================================================
  * Created on: <Fri Mar 13 14:43:33 +00 2026>
- * Time-stamp: <Sat Mar 21 18:19:09 +00 2026 by owner>
+ * Time-stamp: <Mon Apr 20 15:34:45 +01 2026 by owner>
  * Author    : Astar Bahouidi
  * Desc      : Practice sandbox for CS:APP custom library.
  * ========================================================================= */
 #include "../include/csapp.h"
+#include <netdb.h>
 
 /* ****************************************************************** */
 /* Youtrust IO library */
@@ -240,7 +241,7 @@ ssize_t Yio_readlb(rio_t *rp, void *usrbuf, size_t len) {
 int yopen_clientfd(char *hostname, char *port) {
   int clientfd, gai_err, gni_err;
   struct addrinfo hints, *adinf, *adinflist;
-  char host_buf[MAXBUF], serv_buf[MAXBUF];
+  char host_buf[NI_MAXHOST], serv_buf[NI_MAXSERV];
 
   printf("onfiguring remote address...\n");
   memset(&hints, 0, sizeof(struct addrinfo));
@@ -255,7 +256,7 @@ int yopen_clientfd(char *hostname, char *port) {
   }
 
   printf("Opening client file descriptor...\n");
-  /* Walk the list for one the can successfully connect to */
+  /* Walk the list for one we can successfully connect to */
   for (adinf = adinflist; adinf; adinf = adinf->ai_next) {
     /* Create a socket descriptor */
     clientfd = socket(adinf->ai_family, adinf->ai_socktype, adinf->ai_protocol);
@@ -265,8 +266,8 @@ int yopen_clientfd(char *hostname, char *port) {
     if (connect(clientfd, adinf->ai_addr, adinf->ai_addrlen) == 0) {
       /* Get server socket numeric host:port useful for debugging */
       printf("Client connected to remote address:\n");
-      gni_err = getnameinfo(adinf->ai_addr, adinf->ai_addrlen, host_buf, MAXBUF,
-                            serv_buf, MAXBUF, 0);
+      gni_err = getnameinfo(adinf->ai_addr, adinf->ai_addrlen, host_buf, NI_MAXHOST,
+                            serv_buf, NI_MAXSERV, 0);
       if (gni_err != 0) {
         fprintf(stderr, "getnameinfo() failed: %s\n", gai_strerror(gni_err));
         return -2;

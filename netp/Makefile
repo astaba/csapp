@@ -8,13 +8,17 @@ LDLIBS = -lpthread
 
 PROGS =	echo.o\
 	dd2hex\
+	ydd2hex\
 	hex2dd\
+	yhex2dd\
 	hostinfo\
 	hostinfo-ntop\
 	echoclient\
 	echoserveri\
 	tiny/tiny\
 	netpfragments.o\
+	yhex2p6\
+	yp6tohex
 
 all: $(CSAPP_SRC)/csapp.o $(PROGS) 
 $(PROGS): $(CSAPP_SRC)/csapp.o

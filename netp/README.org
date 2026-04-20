@@ -1,7 +1,7 @@
 #+TITLE: Network Programming
 #+AUTHOR: Astar Bahouidi
 #+DESCRIPTION: CSAPP Chapter 11
-#+STARTUP: showeverything
+#+STARTUP: showall
 
 * Table of Contents                                                   :toc_2:
 - [[#3-the-global-ip-internet][3. The Global IP Internet]]
@@ -29,41 +29,133 @@
 
 * 3. The Global IP Internet
 ** 3.1 IP Addresses
+*** Network bytes order
 It would make more sens to define a scalar type for IP address, but as
-an irreversible artifact of pass implementation a =struct= is
-needed. Any binary value retreived from input is in the host little
-endian byte order and must pass through =htonl()= before storing in
-the =struct=. Conversely, any IP addresse in binary form stored in the
-=struct= (in network big endian byte order) must pass through
-=ntohl()= before display to output. However after converting to
-network byte order and storing in the =struct=, the IP address can be
-directely send to =inet_pton()= and =inet_ntop()= for conversion
-between ‘IP Address hexadecimal’ and ‘dotted-decimal notation’.
+an irreversible artifact of pass implementation a =struct in_addr=
+equivalent to =uint32_t= is needed (this one has only one field
+=in_addr.s_addr=).  Any binary value retreived from input is in the
+host little endian byte order and must pass through =htonl()= before
+storing in the =struct=.  Conversely, any IP addresse in binary form
+stored in the =struct= (in network big endian byte order) must pass
+through =ntohl()= before display to output.
+
+- See [[https://www.man7.org/tlpi/toc-detailed.html#:~:text=59.2%20%C2%A0%20Network%20Byte%20Order][Kerrisk's TLPI Section 59.2]].
+
+- Coverting IP numbers: When =long int= was 32 bits is the origin of
+  “l” for (host ←─→ network) =htonl()= and =ntohl()=.
+- Converting Port numbers: When =short int= was 16 bits is the origin
+  of “s” (host ←─→ network)  =htons()= and =ntohs()=.
+
+On systems where the host byte order is the same as network byte
+order, these functions simply return their arguments
+unchanged. Therefore they should always be used.
+
+| LITTLE Endian |                     | BIG Endian       |
+|---------------+---------------------+------------------|
+| =HOST=        | ──→  =htonl()=  ──→ | =struct in_addr= |
+| =HOST=        | ←──  =ntohl()=  ←── | =struct in_addr= |
+
+*** Presentation and Network From
+After converting to network byte order and storing in the
+=struct=, the IP address can be directely send to =inet_pton()= and
+=inet_ntop()= for conversion between ‘IP Address hexadecimal’ and
+‘dotted-decimal notation’.
+
+| Function      | Addr Family | sr_arg2          | ds_arg3      | size arg4   |
+|---------------+-------------+------------------+--------------+-------------|
+| =inet_pton()= | =AF_INET=   | =d.d.d.d char*=  | =&uint32_t=  |             |
+|               | =AF_INET6=  | =x:..:x:x char*= | =&uint128_t= |             |
+| =inet_pton()= | =AF_INET=   | =&in_addr=       | =char*=      | =ds size_t= |
+|               | =AF_INET6=  | =&in_addr=       | =char*=      | =ds size_t= |
+
+#+begin_example
+204.152.189.116         (IPv4 dotted-decimal address);
+::1                     (an IPv6 colon-separated hexadecimal address); or
+::FFFF:204.152.189.116  (an IPv4-mapped IPv6 address).
+#+end_example
 
 *** Practice Problem 11.2
+:PROPERTIES:
+:CUSTOM_ID: problem-11-2
+:END:
 Write a program "hex2dd.c" that converts its 32-bit hex argument to a
 32-bit network byte order and print the result in dotted-decimal
 notation. For example:
 
-#+begin_src sh
+#+begin_example
 linux> ./hex2dd 0x6BD4601D
 107.212.96.29
-#+end_src
+#+end_example
 
 **** Answer
-Reference: [[file:hex2dd.c][Problem 11.2 hex2dd]].
+Reference: [[file:hex2dd.c][Problem 11.2 hex2dd]], [[file:yhex2dd.c][Problem 11.2 yhex2dd]].
 
 *** Practice Problem 11.3
+:PROPERTIES:
+:CUSTOM_ID: problem-11-3
+:END:
 Write a program that takes a dotted-decimal notation string and
 convert it to hexadecimal IP Address. For example:
 
-#+begin_src sh
-linux> ./dd2hex 128.2.194.242
+#+begin_example
+linux> ./dd2hex xo128.2.194.242
 0x8002c2f2
-#+end_src
+#+end_example
 
 **** Answer
-Reference: [[file:dd2hex.c][Problem 11.3 dd2hex]].
+Reference: [[file:dd2hex.c][Problem 11.3 dd2hex]], [[file:ydd2hex.c][Problem 11.3 ydd2hex]].
+
+*** Practice Problem
+**** Integer vectorisation: 128-bit value to hex-string
+:PROPERTIES:
+:CUSTOM_ID: problem-11-2y
+:END:
+- Reference: [[file:yhex2p6.c::int main(int argc, char *argv\[argc + 1\]) {][Problem 11.2y yhex2p6]].
+***** Purpose
+Manipulation of data type to big for C standard type. Using integer
+type vectorisation to convert, flip and move memory vectors.
+
+***** Practically useless
+Contrary to IPv4, IPv6 human readable strings with colons uses
+hexdecimal numbers and not decimal numbers. So hex2dd problem is
+irrelevant when it comes to IPv6 which presentation form is de facto
+in hex and only ever used to feed human readable hex strings into the
+machine to convert to network endianess.
+
+**** Hex-string to 128-bit Value
+:PROPERTIES:
+:CUSTOM_ID: problem-11-3y
+:END:
+- Reference: [[file:yp6tohex.c][Problem 11.3y yp6tohex]].
+
+Human writes and read number in BIG Endian just as network bytes
+order. It makes it easy to retrieve one Most Significant Chunk
+(32-bit) flit with =ntohl=, not for human but for the host to handle
+it correctely to =printf()= in its same Most Significant place.
+
+#+begin_example
+Test Values:
+
+The Loopback
+::1
+"0x0 0x0 0x0 0x1"
+
+Google DNS
+2001:4860:4860::8888
+"0x20014860 0x48600000 0x0 0x00008888"
+
+Doc. Addr
+2001:db8::ff00:42:8329
+"0x20010db8 0x0 0xff000042 0x00008329"
+
+IPv4-Mapped
+::ffff:192.168.1.1
+"0x0 0x0 0x0000ffff 0xc0a80101"
+
+Fully Populated
+abcd:1234:5678:90ef:abcd:1234:0x567:890ef
+"0xabcd1234 0x567890ef 0xabcd1234 0x567890ef"
+#+end_example
 
 ** 3.2 Internet Domain Names
 Using the shell utility =nslookup <domain name>=, you can make a DNS
@@ -158,7 +250,7 @@ structure; it only wants the 4-byte IP payload.
 
 ** 4.8 Helper Functions for the Sockets Interface
 *** My =yopen_clientfd= Function
-My [[file:../src/ycsapp.c::int yopen_clientfd(char *hostname, char *port) {][yopen_clientfd]] is inspired by [[file:../src/csapp.c::int open_clientfd(char *hostname, char *port) {][open_clientfd]].
+My [[file:~/coding/c_prog/csapp/src/ycsapp.c::int yopen_clientfd(char *hostname, char *port) {][yopen_clientfd]] is inspired by [[file:~/coding/c_prog/csapp/src/csapp.c::int open_clientfd(char *hostname, char *port) {][open_clientfd]].
 
 This is a solid, robust implementation that captures the essence of
 the "protocol-independent" philosophy introduced in CSAPP. By
@@ -247,7 +339,7 @@ they retry until that happens. They're not "formatted I/O" like
 around system calls*.
 
 *** Bartender Analogy
-- Explanation: [[file:../src/csapp.c::THE BARTENDER ANALOGY (Conceptual Overview):][The Keg and the Mug]].
+- Explanation: [[file:~/coding/c_prog/csapp/src/ycsapp.c::THE BARTENDER ANALOGY (Conceptual Overview):][The Keg and the Mug]].
 - Picture: [[../images/rio_lib.png][Picture]].
 
 The diagram shows the *"keg and mug" analogy* side by side for
@@ -282,7 +374,7 @@ vs. =rio_readnb=*, showing how the keg changes the flow of data?
 
 *** RIO Library walk-through
 **** Walk-through of =rio_readn()=
-Ref: [[file:../src/csapp.c::ssize_t rio_readn(int fd, void *usrbuf, size_t n)][rio_readn]].
+Ref: [[file:~/coding/c_prog/csapp/src/csapp.c::ssize_t rio_readn(int fd, void *usrbuf, size_t n)][rio_readn]].
 
 ***** Key points:
 1. *Initialization*
@@ -361,16 +453,37 @@ From HONPWC Chapter3: [[file:~/coding/c_prog/networking/ch03-in-depth-tcp-connec
 
 *** 🔑 Key Differences
 
-| Aspect                       | HONPWC (blocking =send=/=recv=)                                                                   | CSAPP RIO (robust I/O)                                                                                       |
-|                              | <20>                                                                                              | <20>                                                                                                         |
-|------------------------------+---------------------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------|
-| *System calls*               | Each call directly hits the kernel. If =recv()= returns fewer bytes, you must handle it manually. | Wraps =read()=/=write()= in loops to guarantee full transfer. Buffered version reduces syscalls by batching. |
-| *Simplicity*                 | Very straightforward: one =send()= or =recv()= per message. Easy to learn and implement.          | More complex API (=rio_readn=, =rio_writen=, =rio_readlineb=) but hides tricky edge cases.                   |
-| *Partial transfers*          | Must manually check return values and loop until all data is sent/received.                       | Automatically retries until the requested amount is transferred (unless EOF/error).                          |
-| *Interrupts (=EINTR=)*       | Programmer must handle signals interrupting syscalls.                                             | RIO handles =EINTR= internally, retrying seamlessly.                                                         |
-| *Efficiency for small reads* | Inefficient if you read one byte at a time --- each =recv()= is a syscall.                        | Buffered RIO (=rio_read=) fills an internal buffer (keg) once, then serves many small reads from memory.     |
-| *Line-oriented input*        | Requires manual parsing of newlines.                                                              | =rio_readlineb= delivers complete lines safely and efficiently.                                              |
-| *Use case fit*               | Best for simple bulk transfers (e.g., file copy, large payloads).                                 | Best for interactive protocols (HTTP, SMTP, echo client) where messages are small and structured.            |
+| Aspect                       | HONPWC (blocking ~send~/~recv~)     | CSAPP RIO (robust I/O)             |
+|------------------------------+-------------------------------------+------------------------------------|
+| *System calls*               | Each call directly hits the kernel. | Wraps ~read()~/~write()~ in        |
+|                              | If ~recv()~ returns fewer bytes,    | loops to guarantee full transfer.  |
+|                              | you must handle it manually.        | Buffered version reduces syscalls  |
+|                              |                                     | by batching.                       |
+|------------------------------+-------------------------------------+------------------------------------|
+| *Simplicity*                 | Very straightforward: one ~send()~  | More complex API (~rio_readn~,     |
+|                              | or ~recv()~ per message.            | ~rio_writen~, ~rio_readlineb~)     |
+|                              | Easy to learn and implement.        | but hides tricky edge cases.       |
+|------------------------------+-------------------------------------+------------------------------------|
+| *Partial transfers*          | Must manually check return values   | Automatically retries until the    |
+|                              | and loop until all data is          | requested amount is transferred    |
+|                              | sent/received.                      | (unless EOF/error).                |
+|------------------------------+-------------------------------------+------------------------------------|
+| *Interrupts (~EINTR~)*       | Programmer must handle signals      | RIO handles ~EINTR~ internally,    |
+|                              | interrupting syscalls.              | retrying seamlessly.               |
+|                              |                                     |                                    |
+|                              |                                     |                                    |
+| *Efficiency for small reads* | Inefficient if you read one byte    | Buffered RIO (~rio_read~) fills    |
+|                              | byte at a time --- each ~recv()~    | an internal buffer (keg) once,     |
+|                              | is a syscall.                       | then serves many small reads       |
+|                              |                                     | from memory.                       |
+|------------------------------+-------------------------------------+------------------------------------|
+| *Line-oriented input*        | Requires manual parsing of          | ~rio_readlineb~ delivers complete  |
+|                              | newlines.                           | lines safely and efficiently.      |
+|------------------------------+-------------------------------------+------------------------------------|
+| *Use case fit*               | Best for simple bulk transfers      | Best for interactive protocols     |
+|                              | (e.g., file copy, large payloads).  | (HTTP, SMTP, echo client) where    |
+|                              |                                     | messages are small and structured. |
+|------------------------------+-------------------------------------+------------------------------------|
 
 *** ⚡ Efficiency Considerations
 - *Bulk transfers (large blocks of data)*:\\
@@ -794,7 +907,7 @@ A HEAD request asks for the same response as a GET request without the
 2. In the CGI apllication code, proceed as in the ~serve_static~
    routine.
 
-References: [[file:tiny/tiny.c::/* INFO: Problem 11.11 part 1: add arg to check request method */][Problem 11.11 tiny]], [[file:tiny/cgi-bin/adder.c::method = getenv("REQUEST_METHOD"); /* INFO: Problem 11.11 */][Problem 11.11 adder]].
+References: [[file:tiny/tiny.c::Problem 11.11][Problem 11.11 tiny]], [[file:tiny/cgi-bin/adder.c::Problem 11.11][Problem 11.11 adder]].
 
 *** Test
 Run =telnet localhost 8080=. Then use the line-based connection to
@@ -1033,3 +1146,4 @@ References:
 | *11.11* | =HEAD= Method   | Headers are sent, but body transmission is skipped.          |
 | *11.12* | =POST= Method   | Headers parsed for length; body passed to CGI via pipe.      |
 | *11.13* | Robustness      | =SIGPIPE= is ignored to prevent server exit on broken pipes. |
+
