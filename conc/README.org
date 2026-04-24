@@ -1,7 +1,256 @@
 #+TITLE: Concurrent Programming
 #+AUTHOR: Astar Bahouidi
-#+DESCRIPTION: CSAPP Chapter 12
-#+STARTUP: showeverything
-#+OPTIONS: TOC:2
+#+DESCRIPTION: CS:APP Chapter 12
+#+STARTUP: showall
 
-* Table of Contents :TOC:
+* Table of Contents                                                   :toc_2:
+- [[#1-concurrent-programming-with-processes][1. Concurrent Programming with Processes]]
+  - [[#11-a-concurrent-server-based-on-processes][1.1 A Concurrent Server Based on Processes]]
+  - [[#12-pros-and-cons-of-processes][1.2 Pros and Cons of Processes]]
+- [[#2-concurrent-programming-with-io-multiplexing][2. Concurrent Programming with I/O Multiplexing]]
+  - [[#21-a-concurrent-event-driven-server-based-on-io-multiplexing][2.1 A Concurrent Event-Driven Server Based on I/O Multiplexing]]
+- [[#3-concurrent-programming-with-threads][3 Concurrent Programming with Threads]]
+  - [[#32-posix-threads][3.2 Posix Threads]]
+  - [[#38-a-concurrent-server-based-on-threads][3.8 A Concurrent Server based on Threads]]
+- [[#4-shared-variables-in-threaded-programs][4 Shared Variables in Threaded Programs]]
+- [[#5-synchronizing-threads-with-semaphores][5 Synchronizing Threads with Semaphores]]
+  - [[#53-using-semaphores-for-mutual-exclusion][5.3 Using Semaphores for Mutual Exclusion]]
+
+* 1. Concurrent Programming with Processes
+
+** 1.1 A Concurrent Server Based on Processes
+
+References:
+- [[file:echoserverp.c][Figure 12.5 echoserverp]] *Concurrent echo server based on processes.*
+  The parent forks a child to handle each new connection request.
+- [[file:echo.c][Figure 11.22y echo]] read and echo text lines until client closes
+  connection.  Modified to uppercase incoming client input before
+  echoing it back for the sake of visual feedback on the prompt.
+
+
+** 1.2 Pros and Cons of Processes
+
+*** Practice Problem 12.1
+[[file:echoserverp.c][Figure 12.5 echoserverp]] demonstrates a concurrent server in which the
+parent process creates a child process to handle each new connection
+request. Trace the value of the reference counter for the associated
+file table for Figure 12.5 (solution page 1072).
+
+**** Answer
+:PROPERTIES:
+:VISIBILITY: folded
+:END:
+When the parent process on the concurrent server starts executing, the
+reference counter to =connfd= increments from 0 to 1 for the
+associated file table. When this parent process forks the child
+process, the reference counter is incremented from 1 to 2. When the
+parent closes its copy of the descriptor, the reference count is
+decremented from 2 to 1. Similarly, when the child’s end of connection
+closes, the reference counter is decremented from 1 to 0.
+
+*** Practice Problem 12.2
+If we were to delete [[file:echoserverp.c::39][line 33 of Figure 12.5]], which closes the
+connected descriptor of the parent process, the code would still be
+correct, in the sense that there would be no memory leak. Why?
+(solution page 1072).
+
+#+begin_quote
+/This holds true only in the event the parent does not spawn child in
+an infinite loop./
+
+See Kerrisk's 24 for =fork()= effects on file descriptors within and
+after the fork.
+#+end_quote
+
+**** Answer
+:PROPERTIES:
+:VISIBILITY: folded
+:END:
+When a process terminates for any reason, the kernel closes all open
+descriptors. Thus, the parent’s copy of the connected file descriptor
+will be closed automatically when the parent exits.
+
+* 2. Concurrent Programming with I/O Multiplexing
+
+References:
+- [[file:select.c::int main(int][Figure 12.6 select]] An iterative echo server that uses I/O
+  multiplexing. The server uses select to wait for connection requests
+  on a listening descriptor and commands on standard input.
+
+** 2.1 A Concurrent Event-Driven Server Based on I/O Multiplexing
+
+References:
+- [[file:echoservers.c::int main(int][Figure 12.8 echoservers]] Concurrent echo server based on I/O
+  multiplexing. Each server iteration echoes a text line from each
+  ready descriptor.
+- [[file:echoservers.c::Figure 12.9][Figure 12.9 init_pool]] initializes the pool of active clients.
+- [[file:echoservers.c::Figure 12.10][Figure 12.10 add_client]] adds a new client connection to the pool.
+- [[file:echoservers.c::Figure 12.11][Figure 12.11 check_clients]] services ready client connections.
+
+*** The State Machine Philosophy
+The state machine framing is one of those conceptual jumps that feels
+heavier than it should because CS:APP introduces it somewhat abruptly
+without much scaffolding.
+
+Let me try to ground it simply.
+
+In the forked server, each client gets its own process with its own
+stack, its own local variables, its own execution flow.  The OS handles
+the bookkeeping of "where am I in serving client X" implicitly through
+the process context.
+
+In the event-driven multiplexed server, you have *one process, one
+flow of control*.  So when you're in the middle of serving client X
+and =select= tells you client Y has data ready, you have to *remember
+where you were* with client X yourself.  The state machine is just
+that memory — the =pool= struct is encoding "for each connected
+client, what state is their conversation in right now."
+
+Each client is a little machine that can be in states like: waiting
+for data, reading data, echoing back.  The =select= loop is the engine
+that looks at all the machines, finds the ones that have something to
+do, advances them one step, then loops.
+
+The reason it feels heavy is that with processes or threads, *the call
+stack IS the state*.  You just block on =read= and the OS preserves
+everything.  With I/O multiplexing you can never block, so you have to
+make that implicit call stack state *explicit* in a data structure.
+
+That tension — implicit state via blocking vs explicit state via
+structs — is really the philosophical heart of the whole chapter.
+
+*** Cardinality and Scalability with =select()=
+
+The first argument to =select()= define as =pool.ready_set + 1= is
+arithmetic trick to map 0-based index to 1-based count relying on the
+fact that file descriptor are non-negative integer and the highest is
+the bound of =select()= range.
+
+A practical consequence worth keeping in mind: This is also why
+=select()= has scalability problems.  It has to scan the entire range
+=[0, nfds-1]= every call, even if a handful of those fds are actually
+set in your fd_set.  If you have nothing else but one fd with value
+1023, it still scans 1042 slots.
+
+That is part of why =epoll= was invented.  It works on an event list
+rather than a dense bitmap scan, so it scales with the number of
+*active* fds rather than the magnitude of the largest fd value (Ref:
+TLPI.63 covers that contrast in satisfying detail).
+
+*** Pedagogical tradeoffs in echoservers design
+
+In the =echoservers.c= design the declaration of =pool= struct
+produces a massive stack allocation of 1024 slots worth in total
+*8MiB*, upfront even when the server services only one client.
+
+That is unpractical and indefensible in production.  CS:APP is
+essentially showing the concept with training wheels on.  The pool
+struct makes the /state machine/ idea *visible and tangible,* which is
+worth the ugliness for learning purposes.  But Kerrisk in TLPI.63 will
+show you what a more serious design looks like.
+
+* 3 Concurrent Programming with Threads
+
+** 3.2 Posix Threads
+
+References:
+- [[file:hello.c::int main()][Figure 12.13 hello]]: The Pthreads “Hello, world!” program.
+
+** 3.8 A Concurrent Server based on Threads
+Reference:
+- [[file:echoservert.c::int main(int][Figure 12.14 echoservert]] Concurrent echo server based on threads.
+
+* 4 Shared Variables in Threaded Programs
+
+References:
+- [[file:sharing.c::int main()][Figure 12.15 sharing]] Example program that illustrates different
+  aspects of sharing.
+
+* 5 Synchronizing Threads with Semaphores
+
+References:
+- [[file:badcnt.c::int main(int][Figure 12.16 badcnt]]: An improperly synchronized counter program.
+- [[file:badcnt.s][Assembly AT&T]] of the bad code highlighting the problematic
+  intructions.
+- [[shell:objdump -d badcnt][Disassembly]].
+
+*** The buggy instruction
+
+Reference:
+- [[file:badcnt.s::.L8: ; Body of each For loop iteration][Figure 12.17]] Assembly code for [[file:badcnt.c::for (i = 0; i < niters; i++)][the counter loop]] in badcnt.c.
+
+C code for thread i:
+
+#+begin_src C
+  for (i = 0; i < niters; i++)
+    cnt++;			/* ←── RACE CONDITION .WARN: */
+#+end_src
+
+Assembly AT&T syntax for thread i:
+
+#+begin_src asm
+    ;; NOTE: LOOP-HEAD
+	movq	%rdi, -24(%rbp)	; declare *vargp: 3rd Q-slot down stack frame
+	movq	-24(%rbp), %rax	; move niters.m address into RAX
+	movq	(%rax), %rax	; dereference niters.m value into RAX
+	movq	%rax, -8(%rbp)	; declare niters.i: 1st Q-slot down stack frame
+	movq	$0, -16(%rbp)	; declare i: 2nd Q-slot down stack frame
+	jmp	.L7
+.L8:			; Body of each For loop iteration
+	;; NOTE: The three-instruction block subject to Race Codition
+    ;;       because: C "cnt++" is not atomic.
+	movq	cnt(%rip), %rax	; NOTE: [L]OAD. Read cnt into RAX
+	addq	$1, %rax	; NOTE: [U]PDATE. Increment RAX
+	movq	%rax, cnt(%rip)	; NOTE: [S]TORE. Write RAX back to cnt
+    ;; NOTE: LOOP-TAIL
+	addq	$1, -16(%rbp)	; Update loop counter by +1
+.L7:
+	movq	-16(%rbp), %rax	; move i to RAX
+	cmpq	-8(%rbp), %rax	; subtract niters.i from RAX (i - niters.i)
+	jl	.L8		; While < 0 iterate again from .L8
+#+end_src
+
+Disassembly:
+
+#+begin_src asm
+0000000000002ae9 <thread>:
+    2ae9:	f3 0f 1e fa          	endbr64
+    2aed:	48 8b 0f             	mov    (%rdi),%rcx
+    2af0:	48 85 c9             	test   %rcx,%rcx
+    2af3:	7e 20                	jle    2b15 <thread+0x2c>
+    2af5:	ba 00 00 00 00       	mov    $0x0,%edx
+    2afa:	48 8b 05 2f 45 00 00 	mov    0x452f(%rip),%rax        # 7030 <cnt>
+    2b01:	48 83 c0 01          	add    $0x1,%rax
+    2b05:	48 89 05 24 45 00 00 	mov    %rax,0x4524(%rip)        # 7030 <cnt>
+    2b0c:	48 83 c2 01          	add    $0x1,%rdx
+    2b10:	48 39 d1             	cmp    %rdx,%rcx
+    2b13:	75 e5                	jne    2afa <thread+0x11>
+    2b15:	b8 00 00 00 00       	mov    $0x0,%eax
+    2b1a:	c3                   	ret
+
+#+end_src
+
+*** The crucial observation CS:APP is building toward
+
+Notice that =cnt++= compiles to *three separate instructions*.
+
+- *L* --- Load =cnt= from memory into a register
+- *U* --- Update (increment) the register
+- *S* --- Store the register back to memory
+
+These three are not atomic. The scheduler can interrupt thread i
+between any of them and hand control to thread j. Thread j then does
+its own L/U/S on the stale value it loaded, and when thread i resumes
+and does its S it *overwrites thread j's work*.
+
+That is the race condition. The assembly makes it viscerally visible
+in a way the C source completely hides. =cnt++= looks like one thing
+but is three things, and that gap between H and S is where concurrency
+goes wrong.
+
+Does the Intel translation bring the loop back into focus clearly?
+
+** 5.3 Using Semaphores for Mutual Exclusion
+References:
+- [[file:goodcnt.c][goodcnt]]: A correctly synchronized counter program.
+- [[file:goodcnt.s::thread: ; thread's routine][Assembly AT&T]] of the good code.

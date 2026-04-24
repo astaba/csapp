@@ -1,5 +1,13 @@
-/* echoserverp.c - A concurrent echo server based on processes */
-
+/* =========================================================================
+ * Created on: <Tue Apr 21 05:34:58 +01 2026>
+ * Time-stamp: <Thu Apr 23 10:15:02 +01 2026 by owner>
+ * Author    : CS:APP by Randal E. Bryant and David R. O’Hallaron
+ * Desc      : ~/coding/c_prog/csapp/conc/echoserverp.c -
+ *
+ * Figure 12.5 Concurrent echo server based on processes. The parent
+ * forks a child to handle each new connection request.
+ * See [[file:echoservers.c]], [[file:echoservert.c]]
+ * ========================================================================= */
 #include "../include/csapp.h"
 void echo(int connfd);
 
@@ -9,7 +17,7 @@ void sigchld_handler(int sig) {
   return;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[argc + 1]) {
   int listenfd, connfd;
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
@@ -27,9 +35,8 @@ int main(int argc, char **argv) {
     if (Fork() == 0) {
       Close(listenfd); /* Child closes its listening socket */
       echo(connfd);    /* Child services client */
-      Close(connfd);
-      /* Child closes connection with client */
-      exit(0); /* Child exits */
+      Close(connfd);   /* Child closes connection with client */
+      exit(0);         /* Child exits */
     }
     Close(connfd);
     /* Parent closes connected socket (important!) */

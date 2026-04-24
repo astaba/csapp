@@ -1,3 +1,10 @@
+# =========================================================================
+# Created on: <Mon Apr 20 22:30:15 +01 2026>
+# Time-stamp: <Tue Apr 21 00:05:41 +01 2026 by owner>
+# Author    : CS:APP by Randal E. Bryant and David R. O’Hallaron
+# Desc      : ~/coding/c_prog/csapp/conc/Makefile -
+# =========================================================================
+.PHONY: all clean
 psuCC = gcc
 
 CSAPP_INC = ../include
@@ -37,11 +44,11 @@ PROGS =	hello\
 	rw3.o\
 
 all: $(CSAPP_SRC)/csapp.o $(PROGS)
-$(PROGS): $(CSAPP_SRC)/csapp.o 
+$(PROGS): $(CSAPP_SRC)/csapp.o
 $(CSAPP_SRC)/csapp.o: $(CSAPP_SRC)/csapp.c $(CSAPP_INC)/csapp.h
 
 # The two programs that we use to illustrate synchronization
-goodcnt: goodcnt.c 
+goodcnt: goodcnt.c
 	$(CC) $(COUNTERARGS) -o goodcnt goodcnt.c $(CSAPP_SRC)/csapp.o -lpthread
 	$(CC) $(COUNTERARGS) -S goodcnt.c
 
@@ -50,25 +57,25 @@ badcnt: badcnt.c
 	$(CC) $(COUNTERARGS) -S badcnt.c
 
 run-psum-mutex:
-	/usr/bin/time ./psum-mutex 1 31 
-	/usr/bin/time ./psum-mutex 2 31 
-	/usr/bin/time ./psum-mutex 4 31 
-	/usr/bin/time ./psum-mutex 8 31 
+	/usr/bin/time ./psum-mutex 1 31
+	/usr/bin/time ./psum-mutex 2 31
+	/usr/bin/time ./psum-mutex 4 31
+	/usr/bin/time ./psum-mutex 8 31
 	/usr/bin/time ./psum-mutex 16 31
 
 run-psum-array:
-	/usr/bin/time ./psum-array 1 31 
-	/usr/bin/time ./psum-array 2 31 
-	/usr/bin/time ./psum-array 4 31 
-	/usr/bin/time ./psum-array 8 31 
-	/usr/bin/time ./psum-array 16 31 
+	/usr/bin/time ./psum-array 1 31
+	/usr/bin/time ./psum-array 2 31
+	/usr/bin/time ./psum-array 4 31
+	/usr/bin/time ./psum-array 8 31
+	/usr/bin/time ./psum-array 16 31
 
 run-psum-local:
-	/usr/bin/time ./psum-local 1 31 
-	/usr/bin/time ./psum-local 2 31 
-	/usr/bin/time ./psum-local 4 31 
-	/usr/bin/time ./psum-local 8 31 
-	/usr/bin/time ./psum-local 16 31 
+	/usr/bin/time ./psum-local 1 31
+	/usr/bin/time ./psum-local 2 31
+	/usr/bin/time ./psum-local 4 31
+	/usr/bin/time ./psum-local 8 31
+	/usr/bin/time ./psum-local 16 31
 
 # Programs that need more than one .o file
 echoserveri: echoserveri.o echo.o

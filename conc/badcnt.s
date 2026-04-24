@@ -1,29 +1,21 @@
+; =========================================================================
+; Created on: <Thu Apr 23 14:08:46 +01 2026> 
+; Time-stamp: <Thu Apr 23 14:44:03 +01 2026 by owner> 
+; Author    : owner
+; Desc      : ~/coding/c_prog/csapp/conc/badcnt.asm -
+;
+; Assembly of [[file:badcnt.c::int main]]
+; =========================================================================
 	.file	"badcnt.c"
 	.text
-	.globl	thread
-	.type	thread, @function
-thread:
-.LFB74:
-	.cfi_startproc
-	endbr64
-	movq	(%rdi), %rcx
-	testq	%rcx, %rcx
-	jle	.L2
-	movl	$0, %edx
-.L3:
-	movq	cnt(%rip), %rax
-	addq	$1, %rax
-	movq	%rax, cnt(%rip)
-	addq	$1, %rdx
-	cmpq	%rdx, %rcx
-	jne	.L3
-.L2:
-	movl	$0, %eax
-	ret
-	.cfi_endproc
-.LFE74:
-	.size	thread, .-thread
-	.section	.rodata.str1.1,"aMS",@progbits,1
+	.globl	cnt
+	.bss
+	.align 8
+	.type	cnt, @object
+	.size	cnt, 8
+cnt:
+	.zero	8
+	.section	.rodata
 .LC0:
 	.string	"usage: %s <niters>\n"
 .LC1:
@@ -34,83 +26,121 @@ thread:
 	.globl	main
 	.type	main, @function
 main:
-.LFB73:
+.LFB6:
 	.cfi_startproc
 	endbr64
 	pushq	%rbp
 	.cfi_def_cfa_offset 16
 	.cfi_offset 6, -16
-	pushq	%rbx
-	.cfi_def_cfa_offset 24
-	.cfi_offset 3, -24
-	subq	$40, %rsp
-	.cfi_def_cfa_offset 64
-	movq	%fs:40, %rax
-	movq	%rax, 24(%rsp)
-	xorl	%eax, %eax
-	cmpl	$2, %edi
-	je	.L6
-	movq	(%rsi), %rdx
-	leaq	.LC0(%rip), %rsi
-	movl	$2, %edi
-	call	__printf_chk@PLT
-	movl	$0, %edi
-	call	exit@PLT
-.L6:
-	movq	8(%rsi), %rdi
-	movl	$10, %edx
-	movl	$0, %esi
-	call	strtol@PLT
-	cltq
-	movq	%rax, (%rsp)
 	movq	%rsp, %rbp
-	leaq	8(%rsp), %rdi
-	movq	%rbp, %rcx
-	leaq	thread(%rip), %rbx
-	movq	%rbx, %rdx
-	movl	$0, %esi
-	call	Pthread_create@PLT
-	leaq	16(%rsp), %rdi
-	movq	%rbp, %rcx
-	movq	%rbx, %rdx
-	movl	$0, %esi
-	call	Pthread_create@PLT
-	movl	$0, %esi
-	movq	8(%rsp), %rdi
-	call	Pthread_join@PLT
-	movl	$0, %esi
-	movq	16(%rsp), %rdi
-	call	Pthread_join@PLT
-	movq	cnt(%rip), %rdx
-	movq	(%rsp), %rax
-	addq	%rax, %rax
-	cmpq	%rdx, %rax
-	je	.L7
-	movq	cnt(%rip), %rdx
-	leaq	.LC1(%rip), %rsi
-	movl	$2, %edi
+	.cfi_def_cfa_register 6
+	subq	$48, %rsp
+	movl	%edi, -36(%rbp)
+	movq	%rsi, -48(%rbp)
+	movq	%fs:40, %rax
+	movq	%rax, -8(%rbp)
+	xorl	%eax, %eax
+	cmpl	$2, -36(%rbp)
+	je	.L2
+	movq	-48(%rbp), %rax
+	movq	(%rax), %rax
+	movq	%rax, %rsi
+	leaq	.LC0(%rip), %rax
+	movq	%rax, %rdi
 	movl	$0, %eax
-	call	__printf_chk@PLT
-.L8:
+	call	printf@PLT
 	movl	$0, %edi
 	call	exit@PLT
-.L7:
-	movq	cnt(%rip), %rdx
-	leaq	.LC2(%rip), %rsi
-	movl	$2, %edi
+.L2:
+	movq	-48(%rbp), %rax
+	addq	$8, %rax
+	movq	(%rax), %rax
+	movq	%rax, %rdi
+	call	atoi@PLT
+	cltq
+	movq	%rax, -32(%rbp)
+	leaq	-32(%rbp), %rdx
+	leaq	-24(%rbp), %rax
+	movq	%rdx, %rcx
+	leaq	thread(%rip), %rdx
+	movl	$0, %esi
+	movq	%rax, %rdi
+	call	Pthread_create@PLT
+	leaq	-32(%rbp), %rdx
+	leaq	-16(%rbp), %rax
+	movq	%rdx, %rcx
+	leaq	thread(%rip), %rdx
+	movl	$0, %esi
+	movq	%rax, %rdi
+	call	Pthread_create@PLT
+	movq	-24(%rbp), %rax
+	movl	$0, %esi
+	movq	%rax, %rdi
+	call	Pthread_join@PLT
+	movq	-16(%rbp), %rax
+	movl	$0, %esi
+	movq	%rax, %rdi
+	call	Pthread_join@PLT
+	movq	-32(%rbp), %rax
+	leaq	(%rax,%rax), %rdx
+	movq	cnt(%rip), %rax
+	cmpq	%rax, %rdx
+	je	.L3
+	movq	cnt(%rip), %rax
+	movq	%rax, %rsi
+	leaq	.LC1(%rip), %rax
+	movq	%rax, %rdi
 	movl	$0, %eax
-	call	__printf_chk@PLT
-	jmp	.L8
+	call	printf@PLT
+	jmp	.L4
+.L3:
+	movq	cnt(%rip), %rax
+	movq	%rax, %rsi
+	leaq	.LC2(%rip), %rax
+	movq	%rax, %rdi
+	movl	$0, %eax
+	call	printf@PLT
+.L4:
+	movl	$0, %edi
+	call	exit@PLT
 	.cfi_endproc
-.LFE73:
+.LFE6:
 	.size	main, .-main
-	.globl	cnt
-	.bss
-	.align 8
-	.type	cnt, @object
-	.size	cnt, 8
-cnt:
-	.zero	8
+	.globl	thread
+	.type	thread, @function
+thread:				; thread routine
+.LFB7:
+	.cfi_startproc
+	endbr64
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	movq	%rdi, -24(%rbp)	; declare *vargp: 3rd Q-slot down stack frame
+	movq	-24(%rbp), %rax	; move niters.m address into RAX
+	movq	(%rax), %rax	; dereference niters.m value into RAX
+	movq	%rax, -8(%rbp)	; declare niters.i: 1st Q-slot down stack frame
+	movq	$0, -16(%rbp)	; declare i: 2nd Q-slot down stack frame
+	jmp	.L7
+.L8:				; Body of each For loop iteration
+	;; WARN: The 3 following instructions are subjects to RACE CONDITION.
+	movq	cnt(%rip), %rax	; Load.		NOTE: Read cnt into RAX
+	addq	$1, %rax	; Update. 	NOTE: Increment RAX
+	movq	%rax, cnt(%rip)	; Store.	NOTE: Write RAX back to cnt
+	;; WARN: It shows: C "cnt++" is not atomic.
+	addq	$1, -16(%rbp)	; Update loop counter by +1
+.L7:
+	movq	-16(%rbp), %rax	; move i to RAX
+	cmpq	-8(%rbp), %rax	; subtract niters.i from RAX (i - niters.i)
+	jl	.L8		; While < 0 iterate again from .L8
+	movl	$0, %eax	; define the returned NULL
+	popq	%rbp
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE7:
+	.size	thread, .-thread
 	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
 	.section	.note.GNU-stack,"",@progbits
 	.section	.note.gnu.property,"a"

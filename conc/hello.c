@@ -1,21 +1,26 @@
-/* 
- * hello.c - Pthreads "hello, world" program 
- */
-/* $begin hello */
-#include "csapp.h"
-void *thread(void *vargp);                    //line:conc:hello:prototype
+/* =========================================================================
+ * Created on: <Wed Apr 22 21:51:12 +01 2026>
+ * Time-stamp: <Wed Apr 22 21:54:22 +01 2026 by owner>
+ * Author    : CS:APP by Randal E. Bryant and David R. O’Hallaron
+ * Desc      : ~/coding/c_prog/csapp/conc/hello.c -
+ *
+ * Figure 12.13 hello.c: The Pthreads “Hello, world!” program.
+ * ========================================================================= */
+#include "../include/csapp.h"
 
-int main()                                    //line:conc:hello:main
-{
-    pthread_t tid;                            //line:conc:hello:tid
-    Pthread_create(&tid, NULL, thread, NULL); //line:conc:hello:create
-    Pthread_join(tid, NULL);                  //line:conc:hello:join
-    exit(0);                                  //line:conc:hello:exit
+void *thread(void *vargp);
+
+int main() {
+  pthread_t tid;
+
+  Pthread_create(&tid, NULL, thread, NULL);
+  Pthread_join(tid, NULL);
+
+  exit(0);
 }
 
-void *thread(void *vargp) /* thread routine */  //line:conc:hello:beginthread
-{
-    printf("Hello, world!\n");                 
-    return NULL;                               //line:conc:hello:return
-}                                              //line:conc:hello:endthread
-/* $end hello */
+/* thread routine */
+void *thread(void *vargp) {
+  printf("Hello, world!\n");
+  return NULL;
+}
