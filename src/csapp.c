@@ -128,6 +128,13 @@ pid_t Getpgrp(void) { return getpgrp(); }
  * Wrappers for Unix signal functions
  ***********************************/
 
+/* NOTE on action.sa_mask: No additional signal to add to the mask so
+ * as to be explicitely block by the kernel. Another reason why the
+ * mask is previously cleared: not to hold garbage stack bits that
+ * could be misinterpreted by the kernel. Therefore the blocked signal
+ * is the kernel default and implicit blocking of the current signal
+ * being handled. */
+
 /* Figure 8.38 Signal. A wrapper for sigaction that provides portable
    signal handling on Posix-compliant systems. */
 handler_t *Signal(int signum, handler_t *handler) {
@@ -932,4 +939,3 @@ int Open_listenfd(char *port) {
     unix_error("Open_listenfd error");
   return rc;
 }
-

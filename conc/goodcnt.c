@@ -1,6 +1,6 @@
 /* =========================================================================
  * Created on: <Fri Apr 24 00:57:07 +01 2026>
- * Time-stamp: <Fri Apr 24 01:15:11 +01 2026 by owner>
+ * Time-stamp: <Fri May  1 16:42:26 +01 2026 by owner>
  * Author    : CS:APP by Randal E. Bryant and David R. O’Hallaron
  * Desc      : ~/coding/c_prog/csapp/conc/goodcnt.c -
  *
@@ -11,8 +11,9 @@
 void *thread(void *vargp); /* Thread routine prototype */
 
 /* Global shared variables */
-volatile long cnt = 0; /* Counter */
-sem_t mutex;           /* Semaphore that protects counter */
+static volatile long cnt = 0; /* Counter */
+/* Declare Unamed Semaphore in shared memory region to protect counter */
+static sem_t mutex;
 
 int main(int argc, char **argv) {
   int niters;
@@ -25,7 +26,9 @@ int main(int argc, char **argv) {
   }
   niters = atoi(argv[1]);
 
-  Sem_init(&mutex, 0, 1); /* mutex = 1 */
+  /* arg2 = 0 # Semaphore is not process-shared */
+  /* arg3 = 1 # Semaphore initial value */
+  Sem_init(&mutex, 0, 1);
 
   /* Create threads and wait for them to finish */
   Pthread_create(&tid1, NULL, thread, &niters);
@@ -46,9 +49,9 @@ void *thread(void *vargp) {
   int i, niters = *((int *)vargp);
 
   for (i = 0; i < niters; i++) {
-    P(&mutex);
+    P(&mutex); /* sem_wait(&mutex) */
     cnt++;
-    V(&mutex);
+    V(&mutex); /* sem_post(&mutex) */
   }
   return NULL;
 }

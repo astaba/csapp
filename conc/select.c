@@ -1,6 +1,6 @@
 /* =========================================================================
  * Created on: <Tue Apr 21 14:55:19 +01 2026>
- * Time-stamp: <Tue Apr 21 14:59:20 +01 2026 by owner>
+ * Time-stamp: <Fri May  1 14:01:02 +01 2026 by owner>
  * Author    : CS:APP by Randal E. Bryant and David R. O’Hallaron
  * Desc      : ~/coding/c_prog/csapp/conc/select.c -
  *
@@ -32,8 +32,10 @@ int main(int argc, char **argv) {
   while (1) {
     ready_set = read_set;
     Select(listenfd + 1, &ready_set, NULL, NULL, NULL);
+
     if (FD_ISSET(STDIN_FILENO, &ready_set))
       command(); /* Read command line from stdin */
+
     if (FD_ISSET(listenfd, &ready_set)) {
       clientlen = sizeof(struct sockaddr_storage);
       connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);

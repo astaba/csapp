@@ -1,6 +1,6 @@
 /* =========================================================================
  * Created on: <Thu Apr 23 00:08:46 +01 2026>
- * Time-stamp: <Fri Apr 24 00:56:57 +01 2026 by owner>
+ * Time-stamp: <Fri May  1 15:49:02 +01 2026 by owner>
  * Author    : CS:APP by Randal E. Bryant and David R. O’Hallaron
  * Desc      : ~/coding/c_prog/csapp/conc/badcnt.c -
  *

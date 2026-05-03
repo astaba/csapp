@@ -1,17 +1,25 @@
+/* =========================================================================
+ * Created on: <Fri May 01 16:37:32 +01 2026>
+ * Time-stamp: <Fri May  1 16:51:33 +01 2026 by owner>
+ * Author    : Copyright (c) 2002, R. Bryant and D. O'Hallaron,
+ *	       All rights reserved.
+ * Desc      : ~/coding/c_prog/csapp/conc/sbuf.h -
+ * ========================================================================= */
 #ifndef __SBUF_H__
 #define __SBUF_H__
 
-#include "csapp.h"
+#include "../include/csapp.h"
 
-/* $begin sbuft */
+/* Figure 12.24 sbuf_t */
+/* Bounded buffer used by the Sbuf package. */
 typedef struct {
-    int *buf;          /* Buffer array */         
-    int n;             /* Maximum number of slots */
-    int front;         /* buf[(front+1)%n] is first item */
-    int rear;          /* buf[rear%n] is last item */
-    sem_t mutex;       /* Protects accesses to buf */
-    sem_t slots;       /* Counts available slots */
-    sem_t items;       /* Counts available items */
+  int *buf;    /* Buffer array */
+  int n;       /* Maximum number of slots */
+  int front;   /* buf[(front+1)%n] is first item */
+  int rear;    /* buf[rear%n] is last item */
+  sem_t mutex; /* Protects accesses to buf */
+  sem_t slots; /* Counts available slots */
+  sem_t items; /* Counts available items */
 } sbuf_t;
 /* $end sbuft */
 

@@ -15,6 +15,8 @@
 - [[#4-shared-variables-in-threaded-programs][4 Shared Variables in Threaded Programs]]
 - [[#5-synchronizing-threads-with-semaphores][5 Synchronizing Threads with Semaphores]]
   - [[#53-using-semaphores-for-mutual-exclusion][5.3 Using Semaphores for Mutual Exclusion]]
+  - [[#54-using-semaphores-to-schedule-shared-resources][5.4 Using Semaphores to Schedule Shared Resources]]
+  - [[#55-putting-it-together-a-concurrent-server-based-on-prethreading][5.5 Putting It Together: A Concurrent Server Based on Prethreading]]
 
 * 1. Concurrent Programming with Processes
 
@@ -130,7 +132,7 @@ A practical consequence worth keeping in mind: This is also why
 =select()= has scalability problems.  It has to scan the entire range
 =[0, nfds-1]= every call, even if a handful of those fds are actually
 set in your fd_set.  If you have nothing else but one fd with value
-1023, it still scans 1042 slots.
+1023, it still scans 1024 slots.
 
 That is part of why =epoll= was invented.  It works on an event list
 rather than a dense bitmap scan, so it scales with the number of
@@ -148,6 +150,78 @@ essentially showing the concept with training wheels on.  The pool
 struct makes the /state machine/ idea *visible and tangible,* which is
 worth the ugliness for learning purposes.  But Kerrisk in TLPI.63 will
 show you what a more serious design looks like.
+
+*** Concurrency of control flow
+
+**** The Question
+#+begin_quote
+/With process concurrency using fork the concurrency is almost
+"visible" as the interleaving of processes which I perfectly recognize
+as the illusion of multitasking: time slice interleaving in the CPU.
+But that concurrency is almost palpable./
+
+/With select() to be honest I only see one synchronous flow without
+any overlapping of any kind any where.  I am missing something./
+#+end_quote
+
+**** The answer
+Your discomfort is legitimate and your honesty about it is exactly the
+right instinct. Let me try to build the vision carefully.
+
+***** Why it feels synchronous
+
+It is synchronous. You are not wrong. There is one process, one
+thread, one instruction pointer marching forward sequentially. Nothing
+is literally overlapping at the CPU level. So where is the
+concurrency?
+
+***** The key is redefining what overlaps
+
+Go back to CS:APP's definition of concurrency from chapter 8.
+
+#+begin_quote Ch08 ecf 8.2.2
+/A logical flow whose execution overlaps in time with another flow is called a concurrent flow, and the two flows are said to run concurrently./
+#+end_quote
+
+Two flows (not processes only) are concurrent if their lifetimes
+overlap --- not if their CPU execution overlaps. A process that starts
+Monday and ends Friday is concurrent with one that starts Wednesday
+and ends Sunday, even if they never literally run at the same instant.
+
+Now think about clients. Client A connects at time T1. Client B
+connects at time T3. Client A disconnects at T5. Their *lifetimes
+overlap*. They are concurrent by definition, even if the server serves
+them in strict alternation.
+
+***** What select() actually buys you
+
+The concurrency in I/O multiplexing is not about CPU
+interleaving. It's about *I/O interleaving*.
+
+Consider what the server is mostly doing --- waiting. Waiting for a
+client to send bytes. Network I/O is glacially slow compared to CPU
+speed. In the forked server each process blocks on its own =read=,
+which is fine but wasteful per process.
+
+With =select=, instead of blocking on one client's =read=, you block
+once on *all clients simultaneously*. The moment any client has data
+ready you wake up, service that one, then go back to waiting on all of
+them together. No client starves the others just because it's being
+slow to send data.
+
+So the overlapping that's happening is not CPU execution --- it's
+*waiting*. All clients' waiting periods overlap inside that single
+=select= call.
+
+***** Where it breaks down
+
+And this is important for your mental model --- the moment any client
+sends a large chunk of data that requires real CPU work to process, that
+doctor is stuck on one call and everyone else waits. That's the
+fundamental limitation of event-driven I/O multiplexing. It only works
+well when tasks are *I/O bound*, not *CPU bound*. The state machine
+design is essentially ensuring no single client gets to monopolize the
+loop.
 
 * 3 Concurrent Programming with Threads
 
@@ -254,3 +328,388 @@ Does the Intel translation bring the loop back into focus clearly?
 References:
 - [[file:goodcnt.c][goodcnt]]: A correctly synchronized counter program.
 - [[file:goodcnt.s::thread: ; thread's routine][Assembly AT&T]] of the good code.
+
+** 5.4 Using Semaphores to Schedule Shared Resources
+
+*** Producer-Consumer Problem
+
+- [[file:sbuf.h::Figure 12.24 sbuf_t][Figure 12.24 sbuf_t]]: Bounded buffer used by the Sbuf package.
+- [[file:sbuf.c::Figure 12.25 Sbuf][Figure 12.25 Sbuf]]: A package for synchronizing concurrent access to bounded buffers.
+
+**** Modulo Magic
+Let's dissect it step by step.
+
+***** What the buffer is
+
+=sp->buf= is a *circular buffer* of size =sp->n=. Indices go from =0=
+to =n-1=. When you reach the end you wrap back to the
+beginning. That's what the modulo enforces.
+
+***** The arithmetic
+
+#+begin_src C
+sp->buf[(++sp->rear) % (sp->n)] = item;
+#+end_src
+
+Break it into two moments:
+
+#+begin_src C
+sp->rear++;                        // advance rear pointer
+sp->buf[sp->rear % sp->n] = item;  // insert at wrapped index
+#+end_src
+
+=++sp->rear= is a *monotonically increasing counter* --- it never
+resets, it just keeps climbing. The modulo is what maps that
+ever-growing number back into the valid index range =[0, n-1]=.
+
+***** A concrete example
+
+Say =n = 3=, so valid indices are 0, 1, 2:
+
+#+begin_example
+rear=0 → 1%3 = 1  → insert at slot 1
+rear=1 → 2%3 = 2  → insert at slot 2
+rear=2 → 3%3 = 0  → wrap! insert at slot 0
+rear=3 → 4%3 = 1  → insert at slot 1 again
+#+end_example
+
+The counter climbs forever but the index oscillates within the buffer
+bounds. The modulo is a *projection* from infinite integer space down
+to finite buffer space.
+
+***** Why not just reset rear to 0 when it hits n?
+
+You could. But then you'd need an if-branch. Modulo does it
+branchlessly and elegantly. It's a classic circular buffer idiom
+you'll see everywhere --- ring buffers in kernels, audio buffers,
+network packet queues.
+
+**** Modulo and Overflow
+
+Exactly. And you've just identified something deeper than the
+immediate code.
+
+The overflow wrapping of the integer type and the modulo wrapping of
+the index are *the same mathematical structure* --- both are modular
+arithmetic, just at different scales. Integer overflow is modulo 2^64
+on a 64-bit system. The index wrapping is modulo n. They compose
+cleanly because they're the same operation nested.
+
+This is why the idiom is robust under overflow --- when =rear= wraps
+from =UINT_MAX= back to 0, the modulo still maps it correctly into
+=[0, n-1]=. No special case needed. The mathematics just works.
+
+This pattern appears everywhere once you recognize it:
+
+- *Ring buffers* in kernel I/O subsystems
+- *TCP sequence numbers* --- 32-bit counter that wraps, sliding window
+  arithmetic is all modular
+- *Hash tables* --- hash value modulo table size maps arbitrary keys to
+  valid slots
+- *Audio/DSP circular buffers* --- same Sbuf idea at hardware speed
+- *CPU instruction pipelines* --- circular queues for in-flight
+  instructions
+
+There's a beautiful quote attributed to Gauss relevant here --- modular
+arithmetic is not a trick or a hack, it's a fundamental structure of
+number theory. Computer scientists rediscover it constantly because
+integers are finite and the world is cyclic.
+
+Your intuition about overflow safety shows you're reading the code at
+the right level --- not just "what does this do" but "why does this
+remain correct under all conditions." That's the difference between
+using a pattern and truly owning it.
+
+**** Synchronization of Bounds Precession
+
+#+begin_quote
+/The logic of this package is mesmerizing. At first I thought how come
+it does not overwrite or double remove. Until I really thought about
+the strategic synchronization of counting semaphore. They would never
+allow that mess, courtesy of the monotonic bound increment data are
+inserted and removed in "precession". That is mind boggling./
+#+end_quote
+
+Yes. And the word "precession" is surprisingly apt --- front and rear
+advance in lockstep like two hands on a clock face that can never
+overlap, kept apart by the semaphores.
+
+Let me articulate exactly why overwrite and double-remove are
+structurally impossible:
+
+***** The two semaphores are complementary constraints
+
+#+begin_src C
+sem_init(&sp->slots, 0, n);  // empty slots available
+sem_init(&sp->items, 0, 0);  // items available to consume
+#+end_src
+
+They are *mirror images* that always sum to =n=:
+
+#+begin_example
+slots + items = n
+#+end_example
+
+Always. Invariantly. That invariant is the mathematical proof that
+overwrite and double-remove cannot happen.
+
+- =slots = 0= means buffer full --- producer blocks, rear cannot
+  advance
+- =items = 0= means buffer empty --- consumer blocks, front cannot
+  advance
+- The two pointers are therefore always separated by exactly =items=
+  slots
+
+***** The precession you identified
+
+=rear= and =front= are like two runners on a circular track where:
+
+- rear cannot lap front --- =slots= semaphore blocks it
+- front cannot overtake rear --- =items= semaphore blocks it
+
+They chase each other forever around the ring, always maintaining a
+gap that the semaphores enforce with mathematical precision.
+
+***** The deeper beauty
+
+Neither producer nor consumer needs to know about each other directly.
+They never communicate. They only talk to the semaphores. The
+coordination is *entirely implicit* in the semaphore counts.
+
+Dijkstra designed this in the 1960s. It still runs in production
+systems today unchanged in structure. That's what a truly correct
+abstraction looks like.
+
+*** Readers-Writers Problem
+
+The readers-writers problem has several variations, each based on the
+priorities of readers and writers:
+
+1) The first readers-writers problem, which favors readers, requires
+   that no reader be kept waiting unless a writer has already been
+   granted permission to use the object. In other words, no reader
+   should wait simply because a writer is waiting.
+
+2) The second readers-writers problem, which favors writers, requires
+   that once a writer is ready to write, it performs its write as soon
+   as possible. Unlike the first problem, a reader that arrives after
+   a writer must wait, even if the writer is also waiting.
+
+**** The naive solution: rwO
+:PROPERTIES:
+:CUSTOM_ID: the-naive-solution-rw0
+:END:
+- [[file:rw0.c]]: Naive readers-writers solution.
+
+***** My analysis
+:PROPERTIES:
+:VISIBILITY: folded
+:END:
+Any readers waiting for the key (=P(&w)=) to the critical section have
+the same chance of access as any number of writers waiting for the
+same key. Aside from that, the code is naive because it not only
+reserve exclusivity to a writer but to every single readers which is
+absolutely unnecessary because many readers can read simultaneously.
+
+***** Claude AI's assessment on rw0
+
+*Your analysis: Correct and complete*
+
+Nothing to add. You identified both problems --- unfair competition
+between readers and writers, and unnecessary serialization of readers.
+This is the naive baseline that motivates all following solutions.
+
+**** The weak solution: rw1
+:PROPERTIES:
+:CUSTOM_ID: the-weak-solution-rw1
+:END:
+- [[file:rw1.c][Figure 12.26 rw1]]: Readers-writers solution with weak reader priority.
+
+***** My analysis
+:PROPERTIES:
+:VISIBILITY: folded
+:END:
+This solution allow many readers to read simultaneously. Further more,
+as long as a reader is reading any number of readers can access the
+critical section allowing for complete starvation of all writers. This
+is because the key is unlocked by the last reader only (src_C{if
+(readcnt == 0)}). On the other hand this solution is deemed weak on
+readers priority. The reason is when a writer is done with the
+critical section and unlock the key (src_C{V(&w)}), a peer writer
+might be asking for the key on src_C{P(&w)} and the first reader might
+be asking for the same key right within the if clause src_C{if
+(readcnt == 1)}. At this very moment the waiting reader and waiting
+writers have equal chance of taking hold of the key just unlocked by
+the writer. That outcome does not satisfy the requirements of
+variation 1 of the readers-writers problem.
+
+***** Claude AI's assessment on rw1
+
+*Your analysis: Mostly correct but one refinement needed*
+
+The first part is exactly right. The "first in, last out" idiom with
+=readcnt= is the elegant core of the solution --- the first reader
+locks writers out, the last reader lets them back in. Writer
+starvation is correctly identified.
+
+However your characterization of it being "weak on readers priority"
+needs refinement. The weakness is more specific than equal chance
+between a waiting reader and waiting writer at =P(&w)=.
+
+The real weakness is this: suppose a writer holds =w= and releases
+it. A queue of waiting threads is at =P(&w)=. Among them could be both
+readers and writers. If a writer wins the race it locks readers out
+again. But even if a reader wins, it only increments =readcnt= to 1
+and locks the next writer out --- *but only one reader got through the
+gate*. Other readers that arrive *after* the writer started waiting
+must queue behind the writer at =P(&mutex)= then =P(&w)=. They don't
+get the benefit of piggybacking on the current read session.
+
+So the weakness is not just at the =V(&w)= moment --- it's structural.
+New readers cannot always join an ongoing read session if a writer is
+queued. Variation 1 requires that they can.
+
+**** The strong solution: rw2
+:PROPERTIES:
+:CUSTOM_ID: the-strong-solution-rw2
+:END:
+- [[file:rw2.c]]: Readers-writers solution with strong reader priority.
+
+***** My analysis
+:PROPERTIES:
+:VISIBILITY: folded
+:END:
+This solution does not pretend to solve the writers starvation issue
+but it perfectly comply with variation 1 of the readers-writers
+problem. Now writers need two keys to access the critical
+section. When a writer call src_C{V(&w)} to unlock the critical
+section there is no way for any other writers to take hold of that key
+because all potential writers are locked at src_C{P(&wg)}. Therefore,
+while all waiting, priority falls back to readers (the first one) in
+any events.
+
+***** Claude AI's assessment on rw2
+
+*Your analysis: Correct in conclusion but the mechanism needs
+sharpening*
+
+You correctly identify that =wg= creates a writer queue that keeps
+writers from competing with readers at =P(&w)=. But the explanation of
+"priority falls back to readers" needs to be more precise.
+
+The actual mechanism is:
+
+When writer 1 holds =w= and finishes, it releases =w= then =wg=. At
+this moment:
+
+- Any waiting writer is blocked at =P(&wg)= --- cannot even reach
+  =P(&w)=
+- The first reader is potentially at =P(&w)= directly --- no =wg= in
+  its path
+
+So readers have *structural priority* at =P(&w)= because writers are
+held one gate further back at =P(&wg)=. It's not probabilistic ---
+it's architectural. Readers always get first access to =w= after a
+writer releases it, because no writer can be simultaneously waiting at
+=P(&w)=.
+
+One important caveat you didn't mention: *rw2.c can still starve
+writers* if readers arrive continuously. =wg= prevents
+writer-vs-writer unfairness but does nothing about a continuous stream
+of readers keeping =w= permanently locked. It solves variation 1 but
+not variation 2.
+
+**** The fair solution: rw3
+:PROPERTIES:
+:CUSTOM_ID: the-fair-solution-rw3
+:END:
+- [[file:rw3.c]]: Readers-writers solution that is fair to both readers
+  and writers. Simplifying assumption is that the number of concurrent
+  active readers is at most N.
+
+***** My analysis
+:PROPERTIES:
+:VISIBILITY: folded
+:END:
+This solution solve the writer starvation issue and provide a
+relatively balanced access to the critical section to both
+parties. There are only ~sem~ number of seats in the room (src_C{sem_t
+sem = N}), i.e. a limited number of readers are allowed in the
+critical section.  Each time a reader complete its business the writer
+stands on an equal ground as readers to collect the seats not to use
+them but only to lock readers out. The for loop src_C{for (i = 0; i <
+N; i++)} gives writers equal chance of progressively gain exclusive
+access to the critical section. And the second for loop src_C{for (i =
+0; i < N; i++)} gives the same chance to all waiting writers.
+
+***** Claude AI's assessment on rw3
+
+*Your analysis: Partially correct but the core mechanic is subtly
+wrong*
+
+Your identification of =sem = N= as a bounded seat count is
+correct. And your intuition about balance is right directionally. But
+the explanation of how the writer gains exclusive access needs
+sharpening.
+
+The writer's loop:
+
+#+begin_src C
+for (i = 0; i < N; i++)
+    P(&sem);
+#+end_src
+
+This does not give the writer "equal chance" of progressively gaining
+seats. It gives the writer *exclusive access by draining all N seats*.
+The writer cannot enter its critical section until it holds all N
+permits simultaneously. While it is accumulating permits, readers can
+still hold some --- the writer blocks partway through the loop waiting
+for readers to release their permits. Only when the last reader exits
+and releases its permit does the writer acquire the Nth and final
+permit and proceed.
+
+So the writer essentially *waits for the room to empty* by collecting
+every ticket. It's not competing seat by seat --- it's waiting until
+it can hold all seats at once.
+
+The =wmutex= prevents two writers from simultaneously trying to drain
+=sem= --- which would deadlock since two writers together need 2N
+permits but only N exist.
+
+The balance comes from the fact that while a writer is waiting and has
+already collected some permits, *new readers are blocked* because
+available permits are reduced. This is the key asymmetry with rw1 ---
+the writer's presence actively throttles new readers rather than being
+invisible to them.
+
+**** Overall assessment
+
+Your analytical framework is solid throughout. You're reading the
+semaphore interactions correctly and identifying the right tradeoffs.
+The refinements above are mostly about precision of mechanism rather
+than correctness of conclusion --- you arrived at the right
+destinations, the proofs just needed tightening in places.
+
+The fact that you derived rw2 and rw3 as distinct solutions to distinct
+problems shows you've genuinely internalized the readers-writers
+tradeoff space, not just memorized the code.
+
+
+**** Practice Problem 12.10 (solution page 1074)
+:PROPERTIES:
+:CUSTOM_ID: practice-problem-12-10
+:END:
+The solution to the first readers-writers problem in Figure 12.26
+gives priority to readers, but this priority is weak in the sense that
+a writer leaving its critical section might restart a waiting writer
+instead of a waiting reader. Describe a scenario where this weak
+priority would allow a collection of writers to starve a reader.
+
+** 5.5 Putting It Together: A Concurrent Server Based on Prethreading
+
+- [[file:echoservert_pre.c][Figure 12.28 echoservert_pre]]: A prethreaded concurrent echo
+  server.  The server uses a producer-consumer model with one producer
+  and multiple consumers.
+- [[file:echo_cnt.c][Figure 12.29 echo_cnt]]: A version of echo that counts all bytes
+  received from clients.
+
