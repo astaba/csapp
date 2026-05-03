@@ -370,9 +370,9 @@ event.
   *shredder*.  The kernel sees the signal arrive, sees your preference
   is =SIG_IGN=, and immediately discards it.  It is gone forever.
 
-**** 2. Why your =SIG_IGN= snippet isn't "Blocking"
+**** 2. Why =SIG_IGN= is not blocking
 :PROPERTIES:
-:CUSTOM_ID: why-your-sig_ign-snippet-isnt-blocking
+:CUSTOM_ID: why-sig_ign--is-not-blocking
 :END:
 In your example:
 
@@ -430,9 +430,10 @@ doesn't "lose" user input or system events.
 
 *** Even explicit blocking doesn't redeem the third signal
 #+begin_quote
-First signal is handled with.  While first is hndled: Second signal is
-postponed through the bit vector; Third signal is disarded and lost
-for good.  Is explicit blocking allow to retreive the third signal???
+/First signal is handled with.  While first is handled: Second signal
+is postponed through the bit vector; Third signal is discarded and
+lost for good.  Is explicit blocking allow to retreive the third
+signal?/
 #+end_quote
 
 The short answer is: *No.* Even with explicit blocking, the third signal
@@ -495,11 +496,13 @@ If you use =sigqueue()= to send these and install handlers with the
 :CUSTOM_ID: why-is-it-designed-this-way
 :END:
 Standard signals are intended to represent *state changes*, not *data
-streams*.  * *Analogy:* A signal is like a "Fire Alarm." * If one person
-pulls the alarm, the bell rings.  * If ten people pull ten different
-alarms simultaneously, the bell still just rings.  * You don't need the
-bell to ring ten times to know the building is on fire; you just need to
-know the /state/ has changed to "Fire."
+streams*:
+- *Analogy:* A signal is like a "Fire Alarm."
+- If one person pulls the alarm, the bell rings.
+- If ten people pull ten different alarms simultaneously, the bell
+  still just rings.
+- You don't need the bell to ring ten times to know the building is on
+  fire; you just need to know the /state/ has changed to "Fire."
 
 **** Summary for your mental model:
 :PROPERTIES:
@@ -536,10 +539,10 @@ signal is performed by the main program, which periodically checks
 :PROPERTIES:
 :CUSTOM_ID: g1
 :END:
-*Async-signal-safe* functions can be safely called from handler for
+*Async-signal-safe* functions can be safely called from handler
 because they have either of two properties:
 
-1. *Reentrant-safe:* Never access varaibles out of its scope.
+1. *Reentrant-safe:* Never access variables out of its scope.
 2. *Uninterruptible* by signal handlers.
 
 Notice that many popular functions, such as =printf=, =sprintf=,
@@ -567,8 +570,8 @@ Since many /async-signal-safe/ functions set ~errno~ when they return on error, 
 :PROPERTIES:
 :CUSTOM_ID: protect-accesses-to-shared-global-data-structures
 :END:
-The sequence of instructions necessary to access a blobal data
-structure ~d~ from the main proram could be interrupted by the
+The sequence of instructions necessary to access a global data
+structure ~d~ from the main program could be interrupted by the
 handler.  In that event, the handler might find ~d~ in a inconsistent
 state, with unpredictable results.
 
@@ -580,10 +583,10 @@ routine: handler updates ~g~ and main checks it periodically.
 
 To an *optimizing compiler* it would appear value of ~g~ never changes
 within main.  The reason is, a handler call as an
-Exception-Control-Flow is an hypothetical event completely outside of
+flow-control-exception is an hypothetical event completely outside of
 the compiler-predictable flow control based on *syntactic branching
 logic.* Thus it would be safe to satisfy all references to ~g~ with a
-copy cahed in a register.  Consequently, main would never see any
+copy cached in a register.  Consequently, main would never see any
 updated value of ~g~.  Declaring:
 
 #+begin_src C
@@ -592,8 +595,8 @@ updated value of ~g~.  Declaring:
 
 would force the compiler to read every reference to ~g~ from memory.
 
-Of course *all access to global data shouls protected by temporarily
-blocking all signals.*
+Of course *all access to global data should be protected by
+temporarily blocking all signals.*
 
 **** G5: Declare /flags/ with ~sig_atomic_t~
 In the suggested design at [[#gO][G0 Guideline]], *C* allows to assure atomic
@@ -739,19 +742,27 @@ cannot see your global data.  Therefore, this "interruption" is
 In systems programming, we use different tools for different types of
 "interruption":
 
-| Threat                  | Prevention Tool    | Effect                                                                                             |
-|                         |                    | <20>                                                                                                |
-|-------------------------+--------------------+----------------------------------------------------------------------------------------------------|
-| *Signal Handlers*       | =sigprocmask=      | Prevents handler from running on the same CPU core as your main thread.                            |
-| *Context Switches*      | /N/A (User space)/ | You cannot usually prevent these in standard Linux user-space.                                     |
-| *Multiple Threads/CPUs* | *Mutexes / Locks*  | Prevents two different threads on two different CPU cores from touching the data at the same time. |
+| Threat       | Prevention Tool    | Effect                         |
+|--------------+--------------------+--------------------------------|
+| Signal       | =sigprocmask=      | Prevents handler from running  |
+| Handlers     |                    | on the same CPU core as your   |
+|              |                    | main thread.                   |
+|--------------+--------------------+--------------------------------|
+| Context      | /N/A (User space)/ | You cannot usually prevent     |
+| Switches     |                    | these in standard Linux        |
+|              |                    | user-space.                    |
+|--------------+--------------------+--------------------------------|
+| Multiple     | *Mutexes / Locks*  | Prevents two different threads |
+| Threads/CPUs |                    | on two different CPU cores     |
+|              |                    | from touching the data at the  |
+|              |                    | same time.                     |
 
 ***** 4. Why CSAPP says "Protect Accesses"
 :PROPERTIES:
 :CUSTOM_ID: why-csapp-says-protect-accesses
 :END:
-In the specific context of Figure 8.40, the "Race" is only between the
-*Parent's =main()=* and the *Parent's =handler()=*.  Both of these run in
+In the specific context of [[file:procmask2.c][Figure 8.40]], the "Race" is only between the
+Parent's =main()= and the Parent's =handler()=.  Both of these run in
 the same process memory.
 
 The only way the =handler= can run is if a =SIGCHLD= arrives.  By
@@ -823,20 +834,22 @@ behaviors that happen when a signal handler is running.
 :END:
 The comment in the CSAPP snippet is slightly misleading if read in
 isolation.  By default, POSIX =sigaction= *always* blocks the signal of
-the type currently being handled.  * If you are in a =SIGINT= handler,
-the kernel automatically adds =SIGINT= to the signal mask for the
-duration of that handler.  * You don't have to do anything to make this
-happen; it's a safety feature to prevent a signal from interrupting its
-own handler recursively.
+the type currently being handled:
+- If you are in a =SIGINT= handler, the kernel automatically adds
+  =SIGINT= to the signal mask for the duration of that handler.
+- You don't have to do anything to make this happen; it's a safety
+  feature to prevent a signal from interrupting its own handler
+  recursively.
 
 **** 2. The =sa_mask= (The "Extra" Block)
 :PROPERTIES:
 :CUSTOM_ID: the-sa_mask-the-extra-block
 :END:
 The =sa_mask= field in the =struct sigaction= is for *additional*
-signals you want to block while the handler is running.  * If you are
-handling =SIGINT=, but you also want to make sure =SIGQUIT= doesn't
-interrupt you, you would add =SIGQUIT= to =action.sa_mask=.
+signals you want to block while the handler is running.
+- If you are handling =SIGINT=, but you also want to make sure
+  =SIGQUIT= doesn't interrupt you, you would add =SIGQUIT= to
+  =action.sa_mask=.
 
 **** 3. Why =sigemptyset=?
 :PROPERTIES:
